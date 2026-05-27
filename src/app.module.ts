@@ -1,14 +1,12 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';  // ← 추가
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { FirebaseService } from './firebase/firebase.service';
+import { AuthModule } from './auth/auth.module';
+import { BookshelfModule } from './bookshelf/bookshelf.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),  // ← 추가
+    // 기존 모듈들...
+    AuthModule,
+    BookshelfModule,
   ],
-  controllers: [AppController],
-  providers: [AppService, FirebaseService],
 })
 export class AppModule {}
