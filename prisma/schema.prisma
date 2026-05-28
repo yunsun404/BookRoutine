@@ -1,0 +1,367 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  user_id       String    @id @default(uuid()) @db.Uuid
+  username      String    @unique
+  email         String    @unique
+  password      String
+  nickname      String
+  age           Int?
+  profile_image String?
+  reading_style Json?
+  reading_habit Json?
+  favorite_genre Json?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  
+  refresh_tokens RefreshToken[]
+  bookshelves Bookshelf[]
+  bookshelf_folders BookshelfFolder[]
+  created_groups Group[] @relation("GroupCreator")
+  group_members GroupMember[]
+  reading_rooms ReadingRoom[] @relation("RoomStarter")
+  reading_room_users ReadingRoomUser[]
+  focus_logs FocusLog[]
+  threads Thread[]
+  thread_replies ThreadReply[]
+  reading_goals ReadingGoal[]
+  checklists Checklist[]
+  calendar_records CalendarRecord[]
+  ai_goal_recommendations AiGoalRecommendation[]
+  rankings Ranking[]
+  notifications Notification[]
+  guidebooks Guidebook[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  token_id      String   @id @default(uuid()) @db.Uuid
+  user_id       String   @db.Uuid
+  refresh_token String
+  expired_at    DateTime?
+  created_at    DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [user_id])
+
+  @@map("refresh_tokens")
+}
+
+model Book {
+  book_id       String  @id @default(uuid()) @db.Uuid
+  title         String
+  author        String?
+  isbn          String?
+  book_category String?
+  cover_url     String?
+  total_pages   Int?
+  book_intro    String?
+  source        String?
+
+  bookshelves Bookshelf[]
+  folder_books FolderBook[]
+  group_books GroupBook[]
+  reading_rooms ReadingRoom[]
+  threads Thread[]
+  reading_goals ReadingGoal[]
+  checklists Checklist[]
+
+  @@map("books")
+}
+
+model Bookshelf {
+  bookshelf_id String   @id @default(uuid()) @db.Uuid
+  user_id      String   @db.Uuid
+  book_id      String   @db.Uuid
+  status       Int?
+  current_page Int?
+  progress     Float?
+  created_at   DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [user_id])
+  book Book @relation(fields: [book_id], references: [book_id])
+
+  @@map("bookshelf")
+}
+
+model BookshelfFolder {
+  folder_id    String   @id @default(uuid()) @db.Uuid
+  user_id      String   @db.Uuid
+  folder_name  String
+  folder_image String?
+  created_at   DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [user_id])
+
+  folder_books FolderBook[]
+
+  @@map("bookshelf_folders")
+}
+
+model FolderBook {
+  folder_book_id String @id @default(uuid()) @db.Uuid
+  folder_id      String @db.Uuid
+  book_id        String @db.Uuid
+
+  folder BookshelfFolder @relation(fields: [folder_id], references: [folder_id])
+  book   Book            @relation(fields: [book_id], references: [book_id])
+
+  @@map("folder_books")
+}
+
+model Group {
+  group_id     String   @id @default(uuid()) @db.Uuid
+  group_name   String
+  people_count Int?
+  invite_code  String?
+  created_by   String   @db.Uuid
+  created_at   DateTime @default(now())
+
+  creator User @relation("GroupCreator", fields: [created_by], references: [user_id])
+  group_members GroupMember[]
+  group_books GroupBook[]
+  reading_rooms ReadingRoom[]
+  threads Thread[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  group_member_id String   @id @default(uuid()) @db.Uuid
+  group_id        String   @db.Uuid
+  user_id         String   @db.Uuid
+  role            Int?
+  joined_at       DateTime @default(now())
+
+  group Group @relation(fields: [group_id], references: [group_id])
+  user  User  @relation(fields: [user_id], references: [user_id])
+
+  @@map("group_members")
+}
+
+model GroupBook {
+  group_book_id String    @id @default(uuid()) @db.Uuid
+  group_id      String    @db.Uuid
+  book_id       String    @db.Uuid
+  target_date   DateTime? @db.Date
+  created_at    DateTime  @default(now())
+
+  group Group @relation(fields: [group_id], references: [group_id])
+  book  Book  @relation(fields: [book_id], references: [book_id])
+
+  @@map("group_books")
+}
+
+model ReadingRoom {
+  room_id    String    @id @default(uuid()) @db.Uuid
+  group_id   String    @db.Uuid
+  book_id    String    @db.Uuid
+  started_by String    @db.Uuid
+  is_active  Boolean   @default(false)
+  started_at DateTime?
+  ended_at   DateTime?
+
+  group   Group @relation(fields: [group_id], references: [group_id])
+  book    Book  @relation(fields: [book_id], references: [book_id])
+  starter User  @relation("RoomStarter", fields: [started_by], references: [user_id])
+  reading_room_users ReadingRoomUser[]
+  focus_logs FocusLog[]
+
+  @@map("reading_rooms")
+}
+
+model ReadingRoomUser {
+  room_user_id String    @id @default(uuid()) @db.Uuid
+  room_id      String    @db.Uuid
+  user_id      String    @db.Uuid
+  entered_at   DateTime?
+  exited_at    DateTime?
+
+  room ReadingRoom @relation(fields: [room_id], references: [room_id])
+  user User        @relation(fields: [user_id], references: [user_id])
+
+  @@map("reading_room_users")
+}
+
+model FocusLog {
+  focus_log_id String   @id @default(uuid()) @db.Uuid
+  room_id      String   @db.Uuid
+  user_id      String   @db.Uuid
+  status       String?
+  focus_score  Float?
+  created_at   DateTime @default(now())
+
+  room ReadingRoom @relation(fields: [room_id], references: [room_id])
+  user User        @relation(fields: [user_id], references: [user_id])
+
+  @@map("focus_logs")
+}
+
+model Thread {
+  thread_id    String   @id @default(uuid()) @db.Uuid
+  user_id      String   @db.Uuid
+  book_id      String   @db.Uuid
+  group_id     String?  @db.Uuid
+  content      String
+  current_page Int?
+  is_public    Boolean  @default(true)
+  likes        Int      @default(0)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  user  User   @relation(fields: [user_id], references: [user_id])
+  book  Book   @relation(fields: [book_id], references: [book_id])
+  group Group? @relation(fields: [group_id], references: [group_id])
+
+  thread_replies ThreadReply[]
+  ai_thread_summaries AiThreadSummary[]
+
+  @@map("threads")
+}
+
+model ThreadReply {
+  reply_id     String   @id @default(uuid()) @db.Uuid
+  thread_id    String   @db.Uuid
+  user_id      String   @db.Uuid
+  content      String
+  current_page Int?
+  is_public    Boolean  @default(true)
+  created_at   DateTime @default(now())
+
+  thread Thread @relation(fields: [thread_id], references: [thread_id])
+  user   User   @relation(fields: [user_id], references: [user_id])
+
+  @@map("thread_replies")
+}
+
+model ReadingGoal {
+  goal_id        String    @id @default(uuid()) @db.Uuid
+  user_id        String    @db.Uuid
+  book_id        String    @db.Uuid
+  start_date     DateTime? @db.Date
+  end_date       DateTime? @db.Date
+  period         Int?
+  daily_pages    Int?
+  preferred_days Json?
+  status         Int?
+  created_at     DateTime  @default(now())
+
+  user User @relation(fields: [user_id], references: [user_id])
+  book Book @relation(fields: [book_id], references: [book_id])
+  checklists Checklist[]
+
+  @@map("reading_goals")
+}
+
+model Checklist {
+  checklist_id String    @id @default(uuid()) @db.Uuid
+  user_id      String    @db.Uuid
+  book_id      String?   @db.Uuid
+  goal_id      String?   @db.Uuid
+  goal_content String
+  daily_pages  Int?
+  date         DateTime? @db.Date
+  check_box    Boolean   @default(false)
+  checked_at   DateTime?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  user User         @relation(fields: [user_id], references: [user_id])
+  book Book?        @relation(fields: [book_id], references: [book_id])
+  goal ReadingGoal? @relation(fields: [goal_id], references: [goal_id])
+
+  @@map("checklists")
+}
+
+model CalendarRecord {
+  calendar_id String   @id @default(uuid()) @db.Uuid
+  user_id     String   @db.Uuid
+  date        DateTime @db.Date
+  pages       Int?
+  has_long    Boolean  @default(false)
+  level       Int?
+  is_done     Boolean  @default(false)
+
+  user User @relation(fields: [user_id], references: [user_id])
+
+  @@map("calendar_records")
+}
+
+model AiThreadSummary {
+  summary_id   String   @id @default(uuid()) @db.Uuid
+  thread_id    String   @db.Uuid
+  summary      String?
+  key_insights Json?
+  created_at   DateTime @default(now())
+
+  thread Thread @relation(fields: [thread_id], references: [thread_id])
+
+  @@map("ai_thread_summaries")
+}
+
+model AiGoalRecommendation {
+  recommendation_id       String   @id @default(uuid()) @db.Uuid
+  user_id                 String   @db.Uuid
+  recommended_daily_pages Int?
+  preferred_days          Json?
+  recommended_period      Int?
+  habit_tips              Json?
+  created_at              DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [user_id])
+
+  @@map("ai_goal_recommendations")
+}
+
+model Ranking {
+  ranking_id  String   @id @default(uuid()) @db.Uuid
+  user_id     String   @db.Uuid
+  period      String?
+  scope       String?
+  total_pages Int?
+  rank        Int?
+  percentile  Float?
+  created_at  DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [user_id])
+
+  @@map("rankings")
+}
+
+model Notification {
+  notification_id String    @id @default(uuid()) @db.Uuid
+  user_id         String    @db.Uuid
+  type            String?
+  title           String?
+  content         String?
+  is_read         Boolean   @default(false)
+  scheduled_at    DateTime?
+  sent_at         DateTime?
+  created_at      DateTime  @default(now())
+
+  user User @relation(fields: [user_id], references: [user_id])
+
+  @@map("notifications")
+}
+
+model Guidebook {
+  guidebook_id String    @id @default(uuid()) @db.Uuid
+  user_id      String    @db.Uuid
+  animal_name  String?
+  success      Int?
+  animal_img   String?
+  acquired_at  DateTime?
+
+  user User @relation(fields: [user_id], references: [user_id])
+
+  @@map("guidebooks")
+}
