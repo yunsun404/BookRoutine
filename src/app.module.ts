@@ -8,6 +8,8 @@ import { FirebaseService } from './firebase/firebase.service';
 import { ThreadsModule } from './threads/threads.module';
 import { ReadingGoalsModule } from './reading-goals/reading-goals.module';
 import { ThreadsAiModule } from './threads-ai/threads-ai.module';
+import { UserModule } from './user/user.module';
+import { ReadingRoomModule } from './reading-room/reading-room.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { ThreadsAiModule } from './threads-ai/threads-ai.module';
     ThreadsModule,
     ReadingGoalsModule,
     ThreadsAiModule,
+    UserModule,
+    ReadingRoomModule,
   ],
   controllers: [AppController],
   providers: [AppService, FirebaseService],
