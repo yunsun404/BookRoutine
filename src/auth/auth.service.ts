@@ -33,7 +33,7 @@ export class AuthService {
         const accessToken = this.jwtService.sign(payload_acc);
         const refreshToken = this.jwtService.sign(payload_ref, { expiresIn: '7d' });
 
-        this.refreshTokenStore.push({ userId: user.user_id, token: refreshToken }); // 발급된 refresh token을 위 배열에 저장
+        // this.refreshTokenStore.push({ userId: user.user_id, token: refreshToken }); // 발급된 refresh token을 위 배열에 저장
         await this.prisma.refreshToken.create({
             data: {
                 user_id: user.user_id,
@@ -74,13 +74,12 @@ export class AuthService {
         }
     }
 
-    logout(refreshToken: string) {
+    async logout(refreshToken: string) {
         // 간단한 로그아웃 구현: refresh token을 저장소에서 제거
-        this.refreshTokenStore = this.refreshTokenStore.filter(rt => rt.token !== refreshToken);
-        // const deleteToken=this.prisma.refreshToken.findFirst({
-        //     where:{refresh_token:refreshToken}
-        // });
-        // this.prisma.refreshToken.delete({deleteToken});
+        // this.refreshTokenStore = this.refreshTokenStore.filter(rt => rt.token !== refreshToken);
+        await this.prisma.refreshToken.deleteMany({
+            where: { refresh_token: refreshToken }
+        })
         return { message: 'Logged out successfully' };
     }
 }
