@@ -5,19 +5,25 @@ const prisma = new PrismaClient()
 
 async function main() {
   // 기존 유저 업데이트 (새로 만들지 않고 기존 데이터 수정)
-  const user = await prisma.book.create({
-    data: {
-      title: "죄와 벌-완역본",
-      author: "표도르 도스토예프스키",
-      isbn: "9788993800654",
-      book_category: "러시아 소설",
-      cover_url:"https://image.aladin.co.kr/product/1122/96/coversum/8993800650_1.jpg",
-      total_pages: 607,
-      source:"알라딘",
-    }
-  })
+  // const user = await prisma.book.create({
+  //   data: {
+  //     title: "죄와 벌-완역본",
+  //     author: "표도르 도스토예프스키",
+  //     isbn: "9788993800654",
+  //     book_category: "러시아 소설",
+  //     cover_url:"https://image.aladin.co.kr/product/1122/96/coversum/8993800650_1.jpg",
+  //     total_pages: 607,
+  //     source:"알라딘",
+  //   }
+  // })
 
-  console.log("완료!", { user })
+  // console.log("완료!", { user })
+
+  await prisma.readingGoal.delete({
+  where: {
+    goal_id: "2320cd63-790c-4817-a5cc-1a8cc3eddae6",
+  },
+});
 }
 
 main()

@@ -8,31 +8,27 @@ export class ReadingGoalsService {
   private countReadingDays(startDate: Date, endDate: Date, preferredDays: number[]) {
     let count = 0;
     const dates: Date[] = [];
-
     const current = new Date(startDate);
 
     while (current <= endDate) {
-      const day = current.getDay();
-
+      const day = current.getUTCDay(); // ✅ UTC 기준 요일
       if (preferredDays.includes(day)) {
         count++;
         dates.push(new Date(current));
       }
-
-      current.setDate(current.getDate() + 1);
+      current.setUTCDate(current.getUTCDate() + 1); // ✅ UTC 기준 날짜 증가
     }
 
     return { count, dates };
   }
 
   async create(body: any) {
-    const startDate = new Date(body.start_date);
-    const endDate = new Date(body.end_date);
+    // ✅ UTC 기준으로 파싱 — 한국 timezone에서 하루 밀리는 문제 방지
+    const startDate = new Date(`${body.start_date}T00:00:00.000Z`);
+    const endDate = new Date(`${body.end_date}T00:00:00.000Z`);
 
     const book = await this.prisma.book.findUnique({
-      where: {
-        book_id: body.book_id,
-      },
+      where: { book_id: body.book_id },
     });
 
     if (!book) {
@@ -40,7 +36,6 @@ export class ReadingGoalsService {
     }
 
     const preferredDays: number[] = body.preferred_days;
-
     const { count: readingDayCount, dates } = this.countReadingDays(
       startDate,
       endDate,
@@ -52,9 +47,11 @@ export class ReadingGoalsService {
     }
 
     if (book.total_pages === null) {
-       throw new Error('책의 총 페이지 수가 없습니다.');
+      throw new Error('책의 총 페이지 수가 없습니다.');
     }
+
     const dailyPages = Math.ceil(book.total_pages / readingDayCount);
+    const startPage = body.start_page ?? 1;
 
     const goal = await this.prisma.readingGoal.create({
       data: {
@@ -70,15 +67,19 @@ export class ReadingGoalsService {
     });
 
     await this.prisma.checklist.createMany({
-      data: dates.map((date) => ({
-        user_id: body.user_id,
-        book_id: body.book_id,
-        goal_id: goal.goal_id,
-        goal_content: `${book.title} ${dailyPages}쪽 읽기`,
-        daily_pages: dailyPages,
-        date,
-        check_box: false,
-      })),
+      data: dates.map((date, index) => {
+        const fromPage = startPage + index * dailyPages;
+        const toPage = Math.min(fromPage + dailyPages - 1, book.total_pages!);
+        return {
+          user_id: body.user_id,
+          book_id: body.book_id,
+          goal_id: goal.goal_id,
+          goal_content: `${book.title} ${fromPage} ~ ${toPage}쪽 읽기`,
+          daily_pages: dailyPages,
+          date,
+          check_box: false,
+        };
+      }),
     });
 
     return {
@@ -92,24 +93,15 @@ export class ReadingGoalsService {
 
   findAll() {
     return this.prisma.readingGoal.findMany({
-      include: {
-        book: true,
-      },
-      orderBy: {
-        created_at: 'desc',
-      },
+      include: { book: true },
+      orderBy: { created_at: 'desc' },
     });
   }
 
   async findOne(id: string) {
     const goal = await this.prisma.readingGoal.findUnique({
-      where: {
-        goal_id: id,
-      },
-      include: {
-        book: true,
-        checklists: true,
-      },
+      where: { goal_id: id },
+      include: { book: true, checklists: true },
     });
 
     if (!goal) {
@@ -122,32 +114,59 @@ export class ReadingGoalsService {
   async update(id: string, body: any) {
     await this.findOne(id);
 
-    return this.prisma.readingGoal.update({
-      where: {
-        goal_id: id,
-      },
+    const updated = await this.prisma.readingGoal.update({
+      where: { goal_id: id },
       data: {
-        start_date: body.start_date ? new Date(body.start_date) : undefined,
-        end_date: body.end_date ? new Date(body.end_date) : undefined,
+        start_date: body.start_date
+          ? new Date(`${body.start_date}T00:00:00.000Z`) // ✅ UTC 기준
+          : undefined,
+        end_date: body.end_date
+          ? new Date(`${body.end_date}T00:00:00.000Z`) // ✅ UTC 기준
+          : undefined,
         preferred_days: body.preferred_days,
         status: body.status,
       },
+      include: { book: true },
     });
+
+    const scheduleChanged = body.start_date || body.end_date || body.preferred_days;
+
+    if (scheduleChanged) {
+      await this.prisma.checklist.deleteMany({ where: { goal_id: id } });
+
+      const startDate = new Date(updated.start_date!);
+      const endDate = new Date(updated.end_date!);
+      const preferredDays = updated.preferred_days as number[];
+      const { dates } = this.countReadingDays(startDate, endDate, preferredDays);
+      const dailyPages = updated.daily_pages ?? 0;
+      const startPage = body.start_page ?? 1;
+
+      await this.prisma.checklist.createMany({
+        data: dates.map((date, index) => {
+          const fromPage = startPage + index * dailyPages;
+          const toPage = Math.min(
+            fromPage + dailyPages - 1,
+            updated.book.total_pages ?? 9999,
+          );
+          return {
+            user_id: updated.user_id,
+            book_id: updated.book_id,
+            goal_id: id,
+            goal_content: `${updated.book.title} ${fromPage} ~ ${toPage}쪽 읽기`,
+            daily_pages: dailyPages,
+            date,
+            check_box: false,
+          };
+        }),
+      });
+    }
+
+    return updated;
   }
 
   async remove(id: string) {
     await this.findOne(id);
-
-    await this.prisma.checklist.deleteMany({
-      where: {
-        goal_id: id,
-      },
-    });
-
-    return this.prisma.readingGoal.delete({
-      where: {
-        goal_id: id,
-      },
-    });
+    await this.prisma.checklist.deleteMany({ where: { goal_id: id } });
+    return this.prisma.readingGoal.delete({ where: { goal_id: id } });
   }
 }

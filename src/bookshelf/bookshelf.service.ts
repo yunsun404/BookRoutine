@@ -116,6 +116,7 @@ export class BookshelfService {
               select: {
                 bookshelf_id: true,
                 status:true,
+                progress:true,
               },
               take: 1,
             },

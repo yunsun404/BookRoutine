@@ -10,6 +10,7 @@ import { ReadingGoalsModule } from './reading-goals/reading-goals.module';
 import { ThreadsAiModule } from './threads-ai/threads-ai.module';
 import { UserModule } from './user/user.module';
 import { ReadingRoomModule } from './reading-room/reading-room.module';
+import { ChecklistsModule } from './checklists/checklists.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ReadingRoomModule } from './reading-room/reading-room.module';
     ThreadsAiModule,
     UserModule,
     ReadingRoomModule,
+    ChecklistsModule,
   ],
   controllers: [AppController],
   providers: [AppService, FirebaseService],
