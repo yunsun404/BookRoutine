@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Patch, Post, Request, UseGuards } from '
 import { UserService } from '../user/user.service.js';
 import type { CreateUserInput } from '../user/user.service.js';
 import { AuthService } from './auth.service.js';
-import { JwtAuthGuard } from '../jwtAuth.guard.js';
+import { JwtAuthGuard } from './jwt-auth.guard.js';
 
 @Controller('auth')
 export class AuthController {

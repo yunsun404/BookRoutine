@@ -1,4 +1,4 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBookshelfDto } from './dto/create-bookshelf.dto';
 import { CreateFolderDto } from './dto/create-folder.dto';
@@ -125,7 +125,7 @@ export class BookshelfService {
       },
     });
   }
-  async getBookDetail(bookshelfId: string) {
+  async getBookDetail(bookshelfId: string,userId:string) {
     const bookshelf = await this.prisma.bookshelf.findUnique({
       where: { bookshelf_id: bookshelfId },
       select: {
@@ -148,6 +148,7 @@ export class BookshelfService {
     });
 
     if (!bookshelf) return null;
+    if (bookshelf.user_id !== userId) throw new ForbiddenException();
 
     const reading_goals = await this.prisma.readingGoal.findMany({
       where: {

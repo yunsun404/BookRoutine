@@ -8,29 +8,32 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { BookshelfService } from './bookshelf.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { CreateFolderDto } from './dto/create-folder.dto';
 import { AddFolderBookDto } from './dto/add-folder-book.dto';
 import { Delete } from '@nestjs/common';
 
 //@UseGuards(JwtAuthGuard)
 @Controller('bookshelf')
+@UseGuards(JwtAuthGuard)
 export class BookshelfController {
   constructor(private readonly bookshelfService: BookshelfService) {}
 
   @Get()
   getMyBookshelf(@Req() req) {
-    //return this.bookshelfService.getMyBookshelf(req.user.sub);
-    return this.bookshelfService.getMyBookshelf(
-      '7ff77428-bdab-4724-9a67-ed5587217978',
-    );
+    const userId = req.user.sub;
+
+    return this.bookshelfService.getMyBookshelf(userId);
+    //return this.bookshelfService.getMyBookshelf(
+      //'7ff77428-bdab-4724-9a67-ed5587217978',
+    //);
   }
 
   // 폴더 생성
   @Post('folders')
   createFolder(@Req() req, @Body() dto: CreateFolderDto) {
     return this.bookshelfService.createFolder(
-      '7ff77428-bdab-4724-9a67-ed5587217978',
+      req.user.sub,
       dto,
     );
   }
@@ -39,7 +42,7 @@ export class BookshelfController {
   @Get('folders')
   getMyFolders(@Req() req) {
     return this.bookshelfService.getMyFolders(
-      '7ff77428-bdab-4724-9a67-ed5587217978',
+      req.user.sub
     );
   }
 
@@ -59,8 +62,8 @@ export class BookshelfController {
   }
 
   @Get(':bookshelf_id')
-  getBookDetail(@Param('bookshelf_id') bookshelfId: string) {
-    return this.bookshelfService.getBookDetail(bookshelfId);
+  getBookDetail(@Param('bookshelf_id') bookshelfId: string,@Req() req:any) {
+    return this.bookshelfService.getBookDetail(bookshelfId,req.user.sub);
   }
 
   // 폴더에서 책 제거

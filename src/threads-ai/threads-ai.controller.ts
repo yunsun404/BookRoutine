@@ -1,7 +1,9 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ThreadsAiService } from './threads-ai.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('threads-ai')
+@UseGuards(JwtAuthGuard)
 export class ThreadsAiController {
   constructor(private readonly threadsAiService: ThreadsAiService) {}
 

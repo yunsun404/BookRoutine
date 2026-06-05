@@ -1,5 +1,5 @@
 import { Body, Controller, Get, NotFoundException, Param, Patch, Request, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../jwtAuth.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UserService } from './user.service';
 
 // 프로필 수정 인터페이스->클래스

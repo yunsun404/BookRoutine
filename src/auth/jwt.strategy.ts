@@ -10,7 +10,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       // Supabase 프로젝트 Settings → API → JWT Secret
-      secretOrKey: process.env.SUPABASE_JWT_SECRET!
+      secretOrKey: process.env.JWT_SECRET!
     });
   }
 

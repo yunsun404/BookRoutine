@@ -1,11 +1,19 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ReadingGoalsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private countReadingDays(startDate: Date, endDate: Date, preferredDays: number[]) {
+  private countReadingDays(
+    startDate: Date,
+    endDate: Date,
+    preferredDays: number[],
+  ) {
     let count = 0;
     const dates: Date[] = [];
     const current = new Date(startDate);
@@ -22,7 +30,7 @@ export class ReadingGoalsService {
     return { count, dates };
   }
 
-  async create(body: any) {
+  async create(userId: string, body: any) {
     // ✅ UTC 기준으로 파싱 — 한국 timezone에서 하루 밀리는 문제 방지
     const startDate = new Date(`${body.start_date}T00:00:00.000Z`);
     const endDate = new Date(`${body.end_date}T00:00:00.000Z`);
@@ -55,7 +63,7 @@ export class ReadingGoalsService {
 
     const goal = await this.prisma.readingGoal.create({
       data: {
-        user_id: body.user_id,
+        user_id: userId,
         book_id: body.book_id,
         start_date: startDate,
         end_date: endDate,
@@ -71,7 +79,7 @@ export class ReadingGoalsService {
         const fromPage = startPage + index * dailyPages;
         const toPage = Math.min(fromPage + dailyPages - 1, book.total_pages!);
         return {
-          user_id: body.user_id,
+          user_id: userId,
           book_id: body.book_id,
           goal_id: goal.goal_id,
           goal_content: `${book.title} ${fromPage} ~ ${toPage}쪽 읽기`,
@@ -91,8 +99,9 @@ export class ReadingGoalsService {
     };
   }
 
-  findAll() {
+  findAll(userId: string) {
     return this.prisma.readingGoal.findMany({
+      where: { user_id: userId },
       include: { book: true },
       orderBy: { created_at: 'desc' },
     });
@@ -111,8 +120,9 @@ export class ReadingGoalsService {
     return goal;
   }
 
-  async update(id: string, body: any) {
-    await this.findOne(id);
+  async update(id: string, userId: string, body: any) {
+    const goal = await this.findOne(id);
+    if (String(goal.user_id) !== userId) throw new ForbiddenException();
 
     const updated = await this.prisma.readingGoal.update({
       where: { goal_id: id },
@@ -129,7 +139,8 @@ export class ReadingGoalsService {
       include: { book: true },
     });
 
-    const scheduleChanged = body.start_date || body.end_date || body.preferred_days;
+    const scheduleChanged =
+      body.start_date || body.end_date || body.preferred_days;
 
     if (scheduleChanged) {
       await this.prisma.checklist.deleteMany({ where: { goal_id: id } });
@@ -137,7 +148,11 @@ export class ReadingGoalsService {
       const startDate = new Date(updated.start_date!);
       const endDate = new Date(updated.end_date!);
       const preferredDays = updated.preferred_days as number[];
-      const { dates } = this.countReadingDays(startDate, endDate, preferredDays);
+      const { dates } = this.countReadingDays(
+        startDate,
+        endDate,
+        preferredDays,
+      );
       const dailyPages = updated.daily_pages ?? 0;
       const startPage = body.start_page ?? 1;
 
@@ -164,8 +179,9 @@ export class ReadingGoalsService {
     return updated;
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(id: string, userId: string) {
+    const goal = await this.findOne(id);
+    if (String(goal.user_id) !== userId) throw new ForbiddenException(); // ✅ 추가
     await this.prisma.checklist.deleteMany({ where: { goal_id: id } });
     return this.prisma.readingGoal.delete({ where: { goal_id: id } });
   }

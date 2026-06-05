@@ -1,5 +1,5 @@
 import { Body, Controller, Post, UseGuards, Request, Param, Delete, Get, Query } from '@nestjs/common';
-import { JwtAuthGuard } from '../jwtAuth.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ReadingRoomService } from './reading-room.service';
 import type { CreateRoom } from './reading-room.service';
 
@@ -10,8 +10,8 @@ export class ReadingRoomController {
 
     @Post('start')
     async createRoom(@Request() req, @Body() createRoom: CreateRoom) {
-        const room = await this.readingRoomService.createRoom(req.user.user_id, createRoom);
-        const enter = await this.readingRoomService.joinRoom(req.user.user_id, room.room_id);
+        const room = await this.readingRoomService.createRoom(req.user.sub, createRoom);
+        const enter = await this.readingRoomService.joinRoom(req.user.sub, room.room_id);
         // return this.readingRoomService.createRoom(req.user.user_id, createRoom);
         return {
             create: room,
@@ -21,17 +21,17 @@ export class ReadingRoomController {
 
     @Post(':room_id/join')
     async joinRoom(@Param('room_id') room_id: string, @Request() req) {
-        return await this.readingRoomService.joinRoom(req.user.user_id, room_id);
+        return await this.readingRoomService.joinRoom(req.user.sub, room_id);
     }
 
     @Post(':room_id/leave')
     async leaveRoom(@Param('room_id') room_id: string, @Request() req) {
-        return await this.readingRoomService.leaveRoom(req.user.user_id, room_id);
+        return await this.readingRoomService.leaveRoom(req.user.sub, room_id);
     }
 
     @Delete(':room_id')
     async deleteRoom(@Param('room_id') room_id: string, @Request() req) {
-        return await this.readingRoomService.deleteRoom(req.user.user_id, room_id);
+        return await this.readingRoomService.deleteRoom(req.user.sub, room_id);
     }
 
     @Get('search')

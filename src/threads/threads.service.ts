@@ -1,14 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ThreadsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(body: any) {
+  create(userId, body: any) {
     return this.prisma.thread.create({
       data: {
-        user_id: body.user_id,
+        user_id: userId,
         book_id: body.book_id,
         group_id: body.group_id,
         content: body.content,
@@ -18,17 +22,17 @@ export class ThreadsService {
     });
   }
 
-  findAll(user_id?: string, book_id?: string) {
-  return this.prisma.thread.findMany({
-    where: {
-      ...(user_id && { user_id }),
-      ...(book_id && { book_id }),
-    },
-    orderBy: {
-      created_at: 'desc',
-    },
-  });
-}
+  findAll(userId?: string, book_id?: string) {
+    return this.prisma.thread.findMany({
+      where: {
+        ...(userId && { user_id: userId }),
+        ...(book_id && { book_id }),
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+  }
 
   async findOne(id: string) {
     const thread = await this.prisma.thread.findUnique({
@@ -44,8 +48,9 @@ export class ThreadsService {
     return thread;
   }
 
-  async update(id: string, body: any) {
-    await this.findOne(id);
+  async update(id: string, userId: string, body: any) {
+    const thread = await this.findOne(id);
+    if (String(thread.user_id) !== userId) throw new ForbiddenException();
 
     return this.prisma.thread.update({
       where: {
@@ -59,8 +64,9 @@ export class ThreadsService {
     });
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(id: string, userId: string) {
+    const thread = await this.findOne(id);
+    if (String(thread.user_id) !== userId) throw new ForbiddenException();
 
     return this.prisma.thread.delete({
       where: {

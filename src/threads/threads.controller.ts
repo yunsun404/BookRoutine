@@ -1,5 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ThreadsService } from './threads.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 
 // 모듈에서 사용할 컨트롤러를 포함하여 사용
@@ -8,20 +9,21 @@ import { ThreadsService } from './threads.service';
 
 
 @Controller('threads')
+@UseGuards(JwtAuthGuard)
 export class ThreadsController {
   constructor(private readonly threadsService: ThreadsService) {}
 
   @Post()
-  create(@Body() body: any) {
-    return this.threadsService.create(body);
+  create(@Req() req: any,@Body() body: any) {
+    return this.threadsService.create(req.user.sub,body);
   }
 
  @Get()
   findAll(
-  @Query('user_id') user_id?: string,
+  @Req() req,
   @Query('book_id') book_id?: string,
 ) {
-  return this.threadsService.findAll(user_id, book_id);
+  return this.threadsService.findAll(req.user.sub, book_id);
 }
   @Get(':id')
   findOne(@Param('id') id: string) {
@@ -29,12 +31,12 @@ export class ThreadsController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: any) {
-    return this.threadsService.update(id, body);
+  update(@Param('id') id: string, @Req() req: any,@Body() body: any) {
+    return this.threadsService.update(id,req.user.sub, body);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.threadsService.remove(id);
+  remove(@Param('id') id: string,@Req() req: any) {
+    return this.threadsService.remove(id,req.user.sub);
   }
 }
