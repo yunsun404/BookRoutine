@@ -1,17 +1,7 @@
 import { Body, Controller, Get, NotFoundException, Param, Patch, Request, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../jwtAuth.guard';
 import { UserService } from './user.service';
-
-// 프로필 수정 인터페이스->클래스
-export class UpdateProfileBody {
-    nickname?: string;
-    age?: number;
-    email?: string;
-    password?: string;
-    profile_image?: string;
-    reading_style?: object;
-    favorite_genre?: object;
-}
+import { UpdateProfileBody } from './user.service';
 
 @Controller('users')
 export class UserController {

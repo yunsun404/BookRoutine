@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
-import { UpdateProfileBody } from './user.controller';
+import { IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
 import { JsonValue } from '@prisma/client/runtime/library';
 import { Prisma } from '@prisma/client';
 
@@ -31,6 +31,34 @@ export interface CreateUserInput {
     reading_style?: JsonValue;
     reading_habit?: JsonValue;
     favorite_genre?: JsonValue;
+}
+
+// 프로필 수정 인터페이스->클래스
+export class UpdateProfileBody {
+    @IsString()
+    @IsOptional()
+    nickname?: string;
+    @IsNumber()
+    @IsOptional()
+    age?: number;
+    @IsString()
+    @IsOptional()
+    email?: string;
+    @IsString()
+    @IsOptional()
+    password?: string;
+    @IsString()
+    @IsOptional()
+    profile_image?: string;
+    @IsObject()
+    @IsOptional()
+    reading_style?: object;
+    @IsObject()
+    @IsOptional()
+    reading_habit?: object;
+    @IsObject()
+    @IsOptional()
+    favorite_genre?: object;
 }
 
 @Injectable()
@@ -78,15 +106,17 @@ export class UserService {
     }
 
     async update(user_id: string, body: UpdateProfileBody) {
+        const hashed = body.password ? await bcrypt.hash(body.password, 10) : undefined;
         return this.prisma.user.update({
             where: { user_id: user_id },
             data: {
                 nickname: body.nickname,
                 age: body.age,
                 email: body.email,
-                password: body.password,
+                password: hashed,
                 profile_image: body.profile_image,
                 reading_style: body.reading_style ?? undefined,
+                reading_habit: body.reading_habit ?? undefined,
                 favorite_genre: body.favorite_genre ?? undefined,
             }
         });
