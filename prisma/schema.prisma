@@ -290,6 +290,7 @@ model CalendarRecord {
   has_long    Boolean  @default(false)
   level       Int?
   is_done     Boolean  @default(false)
+  has_paw     Boolean  @default(false)
 
   user User @relation(fields: [user_id], references: [user_id])
 

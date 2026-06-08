@@ -11,7 +11,7 @@ import { ThreadsAiModule } from './threads-ai/threads-ai.module';
 import { UserModule } from './user/user.module';
 import { ReadingRoomModule } from './reading-room/reading-room.module';
 import { ChecklistsModule } from './checklists/checklists.module';
-
+import { CalendarRecordsModule } from './calendar-records/calendar-records.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -23,6 +23,7 @@ import { ChecklistsModule } from './checklists/checklists.module';
     UserModule,
     ReadingRoomModule,
     ChecklistsModule,
+    CalendarRecordsModule
   ],
   controllers: [AppController],
   providers: [AppService, FirebaseService],

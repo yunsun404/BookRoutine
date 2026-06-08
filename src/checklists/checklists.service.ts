@@ -34,56 +34,64 @@ export class ChecklistsService {
   // 홈화면 — 오늘/내일/모레 체크리스트 반환
   // 기존 findUpcoming 전체를 아래로 교체
   async findUpcoming(userId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setUTCDate(today.getUTCDate() + 1);
 
-    const tasks = await this.prisma.checklist.findMany({
-      where: {
-        user_id: userId,
-        date: { gte: today },
-        check_box: false,
-      },
-      include: { book: true },
-      orderBy: { date: 'asc' },
-    });
+  const tasks = await this.prisma.checklist.findMany({
+    where: {
+      user_id: userId,
+      OR: [
+        // ✅ 오늘 것은 완료 여부 상관없이 표시
+        {
+          date: { gte: today, lt: tomorrow },
+        },
+        // ✅ 내일 이후는 미완료만
+        {
+          date: { gte: tomorrow },
+          check_box: false,
+        },
+      ],
+    },
+    include: { book: true },
+    orderBy: { date: 'asc' },
+  });
 
-    // 책별로 그루핑 — 각 책의 앞으로 할 것 3개씩
-    const bookMap: Record<
-      string,
-      {
-        book_id: string;
-        book_title: string;
-        cover_url: string | null;
-        tasks: typeof tasks;
-      }
-    > = {};
+  const validTasks = tasks.filter((task) => task.book !== null);
 
-    // 책별로 그루핑 전에 book 없는 항목 제거
-    const validTasks = tasks.filter((task) => task.book !== null);
-
-    for (const task of validTasks) {
-      const bookId = task.book_id!;
-      if (!bookMap[bookId]) {
-        bookMap[bookId] = {
-          book_id: bookId,
-          book_title: task.book!.title,
-          cover_url: task.book!.cover_url,
-          tasks: [],
-        };
-      }
-      if (bookMap[bookId].tasks.length < 3) {
-        bookMap[bookId].tasks.push(task);
-      }
+  const bookMap: Record<string,
+    {
+      book_id: string;
+      book_title: string;
+      cover_url: string | null;
+      tasks: typeof tasks;
     }
+  > = {};
 
-    return Object.values(bookMap);
+  for (const task of validTasks) {
+    const bookId = task.book_id!;
+    if (!bookMap[bookId]) {
+      bookMap[bookId] = {
+        book_id: bookId,
+        book_title: task.book!.title,
+        cover_url: task.book!.cover_url,
+        tasks: [],
+      };
+    }
+    if (bookMap[bookId].tasks.length < 3) {
+      bookMap[bookId].tasks.push(task);
+    }
   }
+
+  return Object.values(bookMap);
+}
   // PATCH /checklists/:id/check
   // 체크박스 완료/취소 토글
   async toggleCheck(checklistId: string) {
     const checklist = await this.prisma.checklist.findUnique({
       where: { checklist_id: checklistId },
-      include: { book: true }, // ✅ 추가: total_pages 필요
+      include: { book: true },
     });
 
     if (!checklist) {
@@ -92,7 +100,6 @@ export class ChecklistsService {
 
     const nowChecked = !checklist.check_box;
 
-    // 체크리스트 업데이트
     const updated = await this.prisma.checklist.update({
       where: { checklist_id: checklistId },
       data: {
@@ -101,7 +108,7 @@ export class ChecklistsService {
       },
     });
 
-    // ✅ 추가: bookshelf current_page, progress 업데이트
+    // bookshelf 업데이트 (기존 코드 그대로)
     if (checklist.book_id && checklist.daily_pages) {
       const bookshelf = await this.prisma.bookshelf.findFirst({
         where: {
@@ -112,7 +119,6 @@ export class ChecklistsService {
 
       if (bookshelf) {
         const totalPages = checklist.book?.total_pages ?? 1;
-        // 체크 시 +, 취소 시 - (토글이니까)
         const delta = nowChecked
           ? checklist.daily_pages
           : -checklist.daily_pages;
@@ -127,15 +133,10 @@ export class ChecklistsService {
 
         await this.prisma.bookshelf.update({
           where: { bookshelf_id: bookshelf.bookshelf_id },
-          data: {
-            current_page: newCurrentPage,
-            progress: newProgress,
-          },
+          data: { current_page: newCurrentPage, progress: newProgress },
         });
       }
     }
-
-    return updated;
   }
 
   // GET /checklists/monthly?user_id=xxx&year=2026&month=6
@@ -178,5 +179,124 @@ export class ChecklistsService {
       done,
       level: done === 0 ? 0 : done === total ? 2 : 1,
     }));
+  }
+  // 앱 열 때 호출 — 어제 체크한 항목이 유지됐는지 확인 후 발자국 기록
+  async checkYesterdayPaw(userId: string) {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const yesterday = new Date(today);
+    yesterday.setUTCDate(today.getUTCDate() - 1);
+
+    // 어제 체크리스트 조회
+    const yesterdayTasks = await this.prisma.checklist.findMany({
+      where: {
+        user_id: userId,
+        date: {
+          gte: yesterday,
+          lt: today,
+        },
+      },
+    });
+
+    if (yesterdayTasks.length === 0) return null;
+
+    // 어제 체크리스트가 하나라도 완료됐으면 발자국 기록
+    const hasAnyDone = yesterdayTasks.some((t) => t.check_box);
+    if (!hasAnyDone) return null;
+
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    // 이미 발자국이 있으면 중복 생성 방지
+    const existing = await this.prisma.calendarRecord.findFirst({
+      where: {
+        user_id: userId,
+        date: yesterday,
+      },
+    });
+
+    if (existing) {
+      // 이미 있으면 has_paw만 업데이트
+      return this.prisma.calendarRecord.update({
+        where: { calendar_id: existing.calendar_id },
+        data: { has_paw: true },
+      });
+    }
+
+    // 없으면 새로 생성
+    return this.prisma.calendarRecord.create({
+      data: {
+        user_id: userId,
+        date: yesterday,
+        has_paw: true,
+      },
+    });
+  }
+
+  async rolloverMissedTasks(userId: string) {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    // ✅ 오늘 이전 미완료만 — 미래 예정된 것 제외
+    const missedTasks = await this.prisma.checklist.findMany({
+      where: {
+        user_id: userId,
+        date: { lt: today }, // ✅ 오늘 이전만
+        check_box: false,
+      },
+      include: { goal: true },
+    });
+
+    if (missedTasks.length === 0) return null;
+
+    for (const task of missedTasks) {
+      if (!task.goal) continue;
+
+      const preferredDays = task.goal.preferred_days as number[];
+      const nextDate = this.getNextReadingDay(today, preferredDays);
+
+      // ✅ 같은 goal_id + goal_content가 오늘 이후에 이미 있으면 스킵
+      const alreadyScheduled = await this.prisma.checklist.findFirst({
+        where: {
+          user_id: userId,
+          goal_id: task.goal_id,
+          goal_content: task.goal_content,
+          date: {
+            gte: today,
+            lt: new Date(today.getTime() + 86400000 * 7), // 오늘부터 7일 이내
+          },
+          check_box: false,
+        },
+      });
+
+      if (alreadyScheduled) continue; // 이미 있으면 스킵
+
+      await this.prisma.checklist.create({
+        data: {
+          user_id: task.user_id,
+          book_id: task.book_id,
+          goal_id: task.goal_id,
+          goal_content: task.goal_content,
+          daily_pages: task.daily_pages,
+          date: nextDate,
+          check_box: false,
+        },
+      });
+    }
+
+    return { rolled: missedTasks.length };
+  }
+  private getNextReadingDay(from: Date, preferredDays: number[]): Date {
+    const next = new Date(from);
+    next.setUTCDate(next.getUTCDate() + 1);
+
+    for (let i = 0; i < 7; i++) {
+      if (preferredDays.includes(next.getUTCDay())) {
+        return next;
+      }
+      next.setUTCDate(next.getUTCDate() + 1);
+    }
+
+    return next;
   }
 }
