@@ -4,7 +4,7 @@ import { ReadingRoomService } from './reading-room.service';
 import type { CreateRoom } from './reading-room.service';
 
 @Controller('reading-room')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard) // 모든 독서방 HTTP 요청에 대해 JWT 인가 검증 적용
 export class ReadingRoomController {
     constructor(private readonly readingRoomService: ReadingRoomService) { }
 
@@ -12,7 +12,6 @@ export class ReadingRoomController {
     async createRoom(@Request() req, @Body() createRoom: CreateRoom) {
         const room = await this.readingRoomService.createRoom(req.user.user_id, createRoom);
         const enter = await this.readingRoomService.joinRoom(req.user.user_id, room.room_id);
-        // return this.readingRoomService.createRoom(req.user.user_id, createRoom);
         return {
             create: room,
             enter: enter
@@ -39,9 +38,8 @@ export class ReadingRoomController {
         return await this.readingRoomService.getRoomByGroup(group_id);
     }
 
-    @Get((':room_id/users'))
+    @Get(':room_id/users')
     async getUsersInRoom(@Param('room_id') room_id: string) {
         return await this.readingRoomService.getUsersInRoom(room_id);
     }
-
 }
