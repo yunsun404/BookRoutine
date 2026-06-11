@@ -25,8 +25,8 @@ export class GroupController {
     }
 
     @Post('/join')
-    async joinGroup(@Request() req, @Body() body: { group_id: string, invite_code: string }) {
-        return await this.groupService.joinGroup(req.user.user_id, body.group_id, body.invite_code);
+    async joinGroup(@Request() req, @Body() body: { invite_code: string }) {
+        return await this.groupService.joinGroup(req.user.user_id, body.invite_code);
     }
 
     @Post(':group_id/leave')

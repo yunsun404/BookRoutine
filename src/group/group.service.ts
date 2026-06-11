@@ -117,15 +117,14 @@ export class GroupService {
         });
     }
 
-    async joinGroup(user_id: string, group_id: string, invite_code: string) {
-        const group = await this.prisma.group.findUnique({
+    async joinGroup(user_id: string, invite_code: string) {
+        const group = await this.prisma.group.findFirst({
             where: {
-                invite_code: invite_code,
-                group_id: group_id
+                invite_code: invite_code
             }
         });
         const member_count = await this.prisma.groupMember.count({
-            where: { group_id: group_id }
+            where: { group_id: group?.group_id }
         });
 
         if (!group) throw new NotFoundException('없는 그룹에 가입할 수 없음');
@@ -133,7 +132,7 @@ export class GroupService {
 
         return await this.prisma.groupMember.create({
             data: {
-                group_id: group_id,
+                group_id: group.group_id,
                 user_id: user_id,
                 role: 0,
                 joined_at: new Date()
