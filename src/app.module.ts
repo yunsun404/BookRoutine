@@ -12,6 +12,8 @@ import { UserModule } from './user/user.module';
 import { ReadingRoomModule } from './reading-room/reading-room.module';
 import { ChecklistsModule } from './checklists/checklists.module';
 import { CalendarRecordsModule } from './calendar-records/calendar-records.module';
+import { GroupModule } from './group/group.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -23,7 +25,8 @@ import { CalendarRecordsModule } from './calendar-records/calendar-records.modul
     UserModule,
     ReadingRoomModule,
     ChecklistsModule,
-    CalendarRecordsModule
+    CalendarRecordsModule,
+    GroupModule,
   ],
   controllers: [AppController],
   providers: [AppService, FirebaseService],
