@@ -24,10 +24,6 @@ export class ChecklistsController {
     return this.checklistsService.checkYesterdayPaw(req.user.sub);
   }
 
-  @Post('rollover')
-  rolloverMissedTasks(@Req() req) {
-    return this.checklistsService.rolloverMissedTasks(req.user.sub);
-  }
 
   @Get('upcoming')
   findUpcoming(@Req() req) {
