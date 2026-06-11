@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Request, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../jwtAuth.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { CreateGroupBookDto, CreateGroupDto, GroupService, UpdateGroupDto } from './group.service';
 
 @UseGuards(JwtAuthGuard)
@@ -11,12 +11,12 @@ export class GroupController {
 
     @Post()
     async createGroup(@Request() req, @Body() body: CreateGroupDto) {
-        return this.groupService.createGroup(req.user.user_id, body);
+        return this.groupService.createGroup(req.user.sub, body);
     }
 
     @Get()
     async getGroupList(@Request() req) {
-        return this.groupService.getGroupList(req.user.user_id);
+        return this.groupService.getGroupList(req.user.sub);
     }
 
     @Get(':group_id')
@@ -26,17 +26,17 @@ export class GroupController {
 
     @Post('/join')
     async joinGroup(@Request() req, @Body() body: { group_id: string, invite_code: string }) {
-        return await this.groupService.joinGroup(req.user.user_id, body.group_id, body.invite_code);
+        return await this.groupService.joinGroup(req.user.sub, body.group_id, body.invite_code);
     }
 
     @Post(':group_id/leave')
     async leaveGroup(@Request() req, @Param('group_id') group_id: string) {
-        return await this.groupService.leaveGroup(req.user.user_id, group_id);
+        return await this.groupService.leaveGroup(req.user.sub, group_id);
     }
 
     @Post(':group_id/book')
     async setGroupBook(@Request() req, @Param('group_id') group_id: string, @Body() body: CreateGroupBookDto) {
-        return await this.groupService.setGroupBook(req.user.user_id, group_id, body);
+        return await this.groupService.setGroupBook(req.user.sub, group_id, body);
     }
 
     @Get(':group_id/threads')
@@ -56,6 +56,6 @@ export class GroupController {
 
     @Delete(':group_id')
     async deleteGroup(@Request() req, @Param('group_id') group_id: string) {
-        return await this.groupService.deleteGroup(req.user.user_id, group_id);
+        return await this.groupService.deleteGroup(req.user.sub, group_id);
     }
 }
