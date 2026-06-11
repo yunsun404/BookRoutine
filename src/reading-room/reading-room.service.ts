@@ -1,6 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service'; // prisma 의존성 주입 (DI)
-
 /*
 reading-room.service : 
 비즈니스 로직과 DB 조작은 서비스 파일에서 처리합니다. (Prisma 코드 이전)
@@ -27,134 +30,157 @@ export interface CreateRoom {
 
 @Injectable()
 export class ReadingRoomService {
-  // 실시간 소켓 연결 ID와 유저 매핑: 
+  // 실시간 소켓 연결 ID와 유저 매핑:
   // 어떤 소켓(socketId)이 어떤 방(room_id)의 누구(user_id)인지 기억하는 인메모리 저장소
   // 인메모리 세션 저장소 타입: 카멜 케이스(roomId, userId)를 유지함. (참고)
-  private activeSessions = new Map<string, { roomId: string; userId: string; username: string }>();
+  private activeSessions = new Map<
+    string,
+    { roomId: string; userId: string; username: string }
+  >();
   /**
    * 사용자가 웹소켓 채널에 들어오면, 메모리상의 Map 공간에 [소켓 ID] -> {어떤 방, 어떤 유저} 형태로 연결 상태를 실시간 기록
    * 이후 유저가 앱을 툭 꺼버려서 소켓이 끊어지면(disconnect)
-   * 서버는 끊어진 소켓 ID만 알 수 있습니다. 
-   * 이때 메모리의 Map에서 소켓 ID를 조회(get)하여 특정 소켓 ID를 쓰던 
+   * 서버는 끊어진 소켓 ID만 알 수 있습니다.
+   * 이때 메모리의 Map에서 소켓 ID를 조회(get)하여 특정 소켓 ID를 쓰던
    * aaa 유저가 나간 것을 역추적하여 DB를 안전하게 청소하는 용도로 사용됩니다.
-  */
+   */
 
-  constructor(private readonly prisma: PrismaService) {} 
+  constructor(private readonly prisma: PrismaService) {}
   // readonly: 읽기 전용이라는 키워드. 이 변수는 클래스가 처음 실행될 때 한 번 세팅되면, 내부의 다른 함수에서 절대로 다른 값으로 중간에 덮어쓸(수정할) 수 없다
 
   // =========================================================================
-  // 1. [HTTP REST API] 방 생성 및 가입/조회 로직 
+  // 1. [HTTP REST API] 방 생성 및 가입/조회 로직
   // =========================================================================
   async createRoom(user_id: string, dto: CreateRoom) {
     // 💡 방어 코드 추가: 만약 group_id가 누락되었다면 에러를 먼저 내뿜도록 설계
     if (!dto.group_id) {
-        throw new BadRequestException('그룹 ID는 필수 항목입니다.');
+      throw new BadRequestException('그룹 ID는 필수 항목입니다.');
     }
+
+    // 그룹에서 가장 최근 책 가져오기
+    const groupBook = await this.prisma.groupBook.findFirst({
+      where: { group_id: dto.group_id },
+      orderBy: { created_at: 'desc' }, // 가장 최근 등록된 책
+    });
+
     return await this.prisma.readingRoom.create({
-        data: {
-            room_name: dto.group_name,
-            group_id: dto.group_id,
-            book_id: undefined,
-            max_users: dto.max_users || 6,
-            started_by: user_id,
-        },
+      data: {
+        room_name: dto.group_name,
+        group_id: dto.group_id,
+        book_id: groupBook?.book_id ?? null,
+        max_users: dto.max_users || 6,
+        started_by: user_id,
+      },
     });
   }
 
   // HTTP를 통한 수동 방 입장 처리
   async joinRoom(user_id: string, room_id: string) {
-      const room = await this.prisma.readingRoom.findUnique({ where: { room_id } });
-      if (!room) throw new NotFoundException('존재하지 않는 독서방입니다.');
+    const room = await this.prisma.readingRoom.findUnique({
+      where: { room_id },
+    });
+    if (!room) throw new NotFoundException('존재하지 않는 독서방입니다.');
 
-      // 💡 실제 사용하시는 readingRoomUser 테이블명 및 필드 구조 매핑
-      const existing = await this.prisma.readingRoomUser.findFirst({
-          where: { room_id: room_id, user_id: user_id }
+    // 💡 실제 사용하시는 readingRoomUser 테이블명 및 필드 구조 매핑
+    const existing = await this.prisma.readingRoomUser.findFirst({
+      where: { room_id: room_id, user_id: user_id },
+    });
+
+    if (existing) {
+      return await this.prisma.readingRoomUser.update({
+        where: { room_user_id: existing.room_user_id },
+        data: { entered_at: new Date(), exited_at: null, status: 'reading' },
       });
+    }
 
-      if (existing) {
-          return await this.prisma.readingRoomUser.update({
-              where: { room_user_id: existing.room_user_id },
-              data: { entered_at: new Date(), exited_at: null, status: 'reading' }
-          });
-      }
-
-      return await this.prisma.readingRoomUser.create({
-          data: {
-              room_id: room_id,
-              user_id: user_id,
-              entered_at: new Date(),
-              status: 'reading'
-          },
-      });
+    return await this.prisma.readingRoomUser.create({
+      data: {
+        room_id: room_id,
+        user_id: user_id,
+        entered_at: new Date(),
+        status: 'reading',
+      },
+    });
   }
 
   // HTTP를 통한 수동 방 퇴장 처리
   async leaveRoom(user_id: string, room_id: string) {
-      try {
-          const targetUser = await this.prisma.readingRoomUser.findFirst({
-              where: { room_id: room_id, user_id: user_id, exited_at: null }
-          });
+    try {
+      const targetUser = await this.prisma.readingRoomUser.findFirst({
+        where: { room_id: room_id, user_id: user_id, exited_at: null },
+      });
 
-          if (!targetUser) throw new BadRequestException('참여 정보가 없거나 이미 퇴장되었습니다.');
+      if (!targetUser)
+        throw new BadRequestException(
+          '참여 정보가 없거나 이미 퇴장되었습니다.',
+        );
 
-          return await this.prisma.readingRoomUser.update({
-              where: { room_user_id: targetUser.room_user_id },
-              data: { 
-                  exited_at: new Date(),
-                  status: 'offline'
-              }
-          });
-      } catch (error) {
-          throw new BadRequestException('퇴장 처리 중 오류가 발생했습니다.');
-      }
+      return await this.prisma.readingRoomUser.update({
+        where: { room_user_id: targetUser.room_user_id },
+        data: {
+          exited_at: new Date(),
+          status: 'offline',
+        },
+      });
+    } catch (error) {
+      throw new BadRequestException('퇴장 처리 중 오류가 발생했습니다.');
+    }
   }
 
   async deleteRoom(user_id: string, room_id: string) {
-      const room = await this.prisma.readingRoom.findUnique({ where: { room_id } });
-      if (!room) throw new NotFoundException('방을 찾을 수 없습니다.');
-      if (room.started_by !== user_id) throw new BadRequestException('방장만 방을 삭제할 수 있습니다.');
+    const room = await this.prisma.readingRoom.findUnique({
+      where: { room_id },
+    });
+    if (!room) throw new NotFoundException('방을 찾을 수 없습니다.');
+    if (room.started_by !== user_id)
+      throw new BadRequestException('방장만 방을 삭제할 수 있습니다.');
 
-      return await this.prisma.readingRoom.delete({ where: { room_id } });
+    return await this.prisma.readingRoom.delete({ where: { room_id } });
   }
 
   async getRoomByGroup(group_id: string) {
-      return await this.prisma.readingRoom.findMany({
-          where: { group_id },
-          // dev 스키마 구조에 따라 참여자 목록을 함께 로드하도록 보정
-          include: { ReadingRoomUser: true } 
-      });
+    return await this.prisma.readingRoom.findMany({
+      where: { group_id },
+      // dev 스키마 구조에 따라 참여자 목록을 함께 로드하도록 보정
+      include: { ReadingRoomUser: true },
+    });
   }
 
   async getUsersInRoom(room_id: string) {
-      return await this.prisma.readingRoomUser.findMany({
-          where: { room_id },
-          include: { users: true } 
-      });
+    return await this.prisma.readingRoomUser.findMany({
+      where: { room_id },
+      include: { users: true },
+    });
   }
-  
+
   // =========================================================================
   // 2. [Websocket 연결] 핵심 로직
   // =========================================================================
-  
+
   /**
    * [입장] 방 입장시(소켓 연결 시) 인메모리 세션 등록 및 DB 상태 최신화
    */
-  async registerUserSession(socketId: string, roomId: string, userId: string, username: string) {
+  async registerUserSession(
+    socketId: string,
+    roomId: string,
+    userId: string,
+    username: string,
+  ) {
     // 1. 인메모리 세션에 등록 (추후 disconnect 시 추적용)
     this.activeSessions.set(socketId, { roomId, userId, username });
 
     try {
-      // 2. 기존 게이트웨이에 있던 Prisma 입장 갱신 로직 
-      //   : Prisma 조회 시 스네이크 케이스 필드(room_id, user_id)에 카멜케이스 변수(roomId, userId) 매핑 
+      // 2. 기존 게이트웨이에 있던 Prisma 입장 갱신 로직
+      //   : Prisma 조회 시 스네이크 케이스 필드(room_id, user_id)에 카멜케이스 변수(roomId, userId) 매핑
       //     (readingRoomUser 구조)
       const existing = await this.prisma.readingRoomUser.findFirst({
-        where: {room_id: roomId, user_id: userId} 
-      })
-    
+        where: { room_id: roomId, user_id: userId },
+      });
+
       if (existing) {
         await this.prisma.readingRoomUser.update({
-          where: {room_user_id: existing.room_user_id},
-          data: {entered_at: new Date(), exited_at: null, status: 'reading'}
+          where: { room_user_id: existing.room_user_id },
+          data: { entered_at: new Date(), exited_at: null, status: 'reading' },
         });
       } else {
         // 만약 해당 방에 처음 참여하는 유저라면 새로 생성해 줍니다.
@@ -163,8 +189,8 @@ export class ReadingRoomService {
             room_id: roomId,
             user_id: userId,
             entered_at: new Date(),
-            status: 'reading'
-          }
+            status: 'reading',
+          },
         });
       }
       console.log(`[Prisma] 유저 ${username} 입장 상태 DB 반영 완료`);
@@ -181,10 +207,11 @@ export class ReadingRoomService {
     try {
       // 기존 게이트웨이에 있던 updateStatus 내 Prisma 로직
       const targetUser = await this.prisma.readingRoomUser.findFirst({
-          where: { room_id: roomId, user_id: userId },
+        where: { room_id: roomId, user_id: userId },
       });
       if (targetUser) {
-        await this.prisma.readingRoomUser.update({ // db status update
+        await this.prisma.readingRoomUser.update({
+          // db status update
           where: { room_user_id: targetUser.room_user_id },
           data: { status: status },
         });
@@ -231,23 +258,25 @@ export class ReadingRoomService {
     try {
       // 3. 아직 퇴장 안 한 데이터를 찾아 마감 시간 및 offline 처리
       const targetUser = await this.prisma.readingRoomUser.findFirst({
-        where: {room_id: roomId, user_id: userId, exited_at: null} // 아직 퇴장 안 한 데이터 찾기
+        where: { room_id: roomId, user_id: userId, exited_at: null }, // 아직 퇴장 안 한 데이터 찾기
       });
       if (targetUser) {
         await this.prisma.readingRoomUser.update({
           where: { room_user_id: targetUser.room_user_id },
-          data: { 
+          data: {
             exited_at: new Date(),
-            status: 'offline' // 상태를 오프라인으로 변경
+            status: 'offline', // 상태를 오프라인으로 변경
           },
         });
-        console.log(`[Prisma] 유저 ${userId} 퇴장 시간 및 offline 상태 기록 완료.`);
-      } 
+        console.log(
+          `[Prisma] 유저 ${userId} 퇴장 시간 및 offline 상태 기록 완료.`,
+        );
+      }
     } catch (error) {
-        console.error('비정상 퇴장 처리 중 Prisma DB 에러 발생:', error);
+      console.error('비정상 퇴장 처리 중 Prisma DB 에러 발생:', error);
     }
 
     // 게이트웨이가 다른 유저들에게 'userExited' 이벤트를 브로드캐스트할 수 있도록 방 정보 반환
-    return { room_id: roomId, user_id: userId};
+    return { room_id: roomId, user_id: userId };
   }
 }

@@ -8,7 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { BookshelfService } from './bookshelf.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateFolderDto } from './dto/create-folder.dto';
 import { AddFolderBookDto } from './dto/add-folder-book.dto';
 import { Delete } from '@nestjs/common';

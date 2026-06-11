@@ -8,6 +8,7 @@ import {
   Post,
   Req,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { ReadingGoalsService } from './reading-goals.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
@@ -20,6 +21,10 @@ export class ReadingGoalsController {
   @Post()
   create(@Req() req: any, @Body() body: any) {
     return this.readingGoalsService.create(req.user.sub, body);
+  }
+  @Get('search')
+  async searchBooks(@Query('title') title: string) {
+    return this.readingGoalsService.searchAladinBooks(title);
   }
 
   @Get()

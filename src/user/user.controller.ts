@@ -28,7 +28,7 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   @Patch('me')
   async updateProfile(@Request() req, @Body() body: UpdateProfileBody) {
-    const userId = req.user.user_id;
+    const userId = req.user.sub;
     const updatedUser = await this.userService.update(userId, body);
     const { password, ...result } = updatedUser;
     return { message: 'Profile updated successfully', user: result };

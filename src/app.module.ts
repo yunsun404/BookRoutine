@@ -13,9 +13,12 @@ import { ReadingRoomModule } from './reading-room/reading-room.module';
 import { ChecklistsModule } from './checklists/checklists.module';
 import { CalendarRecordsModule } from './calendar-records/calendar-records.module';
 import { GroupModule } from './group/group.module';
-
+import { RankingModule } from './ranking/ranking.module';
+import { StatsModule } from './stats/stats.module'; // 새로 만든 stats 모듈 추가
 @Module({
   imports: [
+    StatsModule,
+    RankingModule,
     ConfigModule.forRoot({ isGlobal: true }),
     AuthModule,
     BookshelfModule,

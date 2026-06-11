@@ -1,5 +1,5 @@
 generator client {
-  provider      = "prisma-client-js"
+  provider = "prisma-client-js"
   binaryTargets = ["native"]
 }
 
@@ -83,8 +83,9 @@ model Bookshelf {
   current_page Int?
   progress     Float?
   created_at   DateTime @default(now())
-  book         Book     @relation(fields: [book_id], references: [book_id])
-  user         User     @relation(fields: [user_id], references: [user_id])
+
+  user User @relation(fields: [user_id], references: [user_id])
+  book Book @relation(fields: [book_id], references: [book_id])
 
   @@map("bookshelf")
 }
@@ -133,8 +134,9 @@ model GroupMember {
   user_id         String   @db.Uuid
   role            Int?
   joined_at       DateTime @default(now())
-  group           Group    @relation(fields: [group_id], references: [group_id])
-  user            User     @relation(fields: [user_id], references: [user_id])
+
+  group Group @relation(fields: [group_id], references: [group_id])
+  user  User  @relation(fields: [user_id], references: [user_id])
 
   @@map("group_members")
 }
@@ -145,13 +147,12 @@ model GroupBook {
   book_id       String    @db.Uuid
   target_date   DateTime? @db.Date
   created_at    DateTime  @default(now())
-  book          Book      @relation(fields: [book_id], references: [book_id])
-  group         Group     @relation(fields: [group_id], references: [group_id])
+
+  group Group @relation(fields: [group_id], references: [group_id])
+  book  Book  @relation(fields: [book_id], references: [book_id])
 
   @@map("group_books")
 }
-
-// reading-room --------------------------------------------
 
 model ReadingRoomUser {
   room_user_id  String        @id @default(uuid())
@@ -186,17 +187,17 @@ model ReadingRoom {
   
   @@map("reading_rooms") // 실제 DB에는 소문자 스네이크 케이스로 생성됨
 }
-// reading-room end --------------------------------------------
 
 model FocusLog {
-  focus_log_id String      @id @default(uuid()) @db.Uuid
-  room_id      String      @db.Uuid
-  user_id      String      @db.Uuid
+  focus_log_id String   @id @default(uuid()) @db.Uuid
+  room_id      String   @db.Uuid
+  user_id      String   @db.Uuid
   status       String?
   focus_score  Float?
-  created_at   DateTime    @default(now())
-  room         ReadingRoom @relation(fields: [room_id], references: [room_id])
-  user         User        @relation(fields: [user_id], references: [user_id])
+  created_at   DateTime @default(now())
+
+  room ReadingRoom @relation(fields: [room_id], references: [room_id])
+  user User        @relation(fields: [user_id], references: [user_id])
 
   @@map("focus_logs")
 }
@@ -229,8 +230,9 @@ model ThreadReply {
   current_page Int?
   is_public    Boolean  @default(true)
   created_at   DateTime @default(now())
-  thread       Thread   @relation(fields: [thread_id], references: [thread_id])
-  user         User     @relation(fields: [user_id], references: [user_id])
+
+  thread Thread @relation(fields: [thread_id], references: [thread_id])
+  user   User   @relation(fields: [user_id], references: [user_id])
 
   @@map("thread_replies")
 }
@@ -320,7 +322,8 @@ model Ranking {
   rank        Int?
   percentile  Float?
   created_at  DateTime @default(now())
-  user        User     @relation(fields: [user_id], references: [user_id])
+
+  user User @relation(fields: [user_id], references: [user_id])
 
   @@map("rankings")
 }

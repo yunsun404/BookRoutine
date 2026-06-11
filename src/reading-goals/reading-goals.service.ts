@@ -4,10 +4,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
 
 @Injectable()
 export class ReadingGoalsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {}
 
   private countReadingDays(
     startDate: Date,
@@ -31,7 +36,6 @@ export class ReadingGoalsService {
   }
 
   async create(userId: string, body: any) {
-    // ✅ UTC 기준으로 파싱 — 한국 timezone에서 하루 밀리는 문제 방지
     const startDate = new Date(`${body.start_date}T00:00:00.000Z`);
     const endDate = new Date(`${body.end_date}T00:00:00.000Z`);
 
@@ -128,10 +132,10 @@ export class ReadingGoalsService {
       where: { goal_id: id },
       data: {
         start_date: body.start_date
-          ? new Date(`${body.start_date}T00:00:00.000Z`) // ✅ UTC 기준
+          ? new Date(`${body.start_date}T00:00:00.000Z`)
           : undefined,
         end_date: body.end_date
-          ? new Date(`${body.end_date}T00:00:00.000Z`) // ✅ UTC 기준
+          ? new Date(`${body.end_date}T00:00:00.000Z`)
           : undefined,
         preferred_days: body.preferred_days,
         status: body.status,
@@ -148,11 +152,7 @@ export class ReadingGoalsService {
       const startDate = new Date(updated.start_date!);
       const endDate = new Date(updated.end_date!);
       const preferredDays = updated.preferred_days as number[];
-      const { dates } = this.countReadingDays(
-        startDate,
-        endDate,
-        preferredDays,
-      );
+      const { dates } = this.countReadingDays(startDate, endDate, preferredDays);
       const dailyPages = updated.daily_pages ?? 0;
       const startPage = body.start_page ?? 1;
 
@@ -181,8 +181,45 @@ export class ReadingGoalsService {
 
   async remove(id: string, userId: string) {
     const goal = await this.findOne(id);
-    if (String(goal.user_id) !== userId) throw new ForbiddenException(); // ✅ 추가
+    if (String(goal.user_id) !== userId) throw new ForbiddenException();
     await this.prisma.checklist.deleteMany({ where: { goal_id: id } });
     return this.prisma.readingGoal.delete({ where: { goal_id: id } });
+  }
+
+  // ✅ 팀원 추가 — DB 내 책 제목 검색
+  async searchBooks(title: string) {
+    return this.prisma.book.findMany({
+      where: {
+        title: {
+          contains: title,
+          mode: 'insensitive',
+        },
+      },
+      select: {
+        book_id: true,
+        title: true,
+        author: true,
+        total_pages: true,
+      },
+    });
+  }
+
+  // ✅ 팀원 추가 — 알라딘 외부 API 검색
+  async searchAladinBooks(title: string) {
+    const ttbKey = this.configService.get<string>('ALADIN_TTB_KEY');
+    const url = `http://www.aladin.co.kr/ttb/api/ItemSearch.aspx`;
+
+    const response = await axios.get(url, {
+      params: {
+        ttbkey: ttbKey,
+        Query: title,
+        QueryType: 'Title',
+        MaxResults: 10,
+        output: 'js',
+        Version: '20131101',
+      },
+    });
+
+    return response.data.item;
   }
 }
