@@ -36,6 +36,10 @@ export class UpdateGroupDto {
     @IsString()
     @IsOptional()
     book_id?: string;
+    @Type(() => Date)
+    @IsDate()
+    @IsOptional()
+    target_date?: Date;
 }
 
 @Injectable()
@@ -204,7 +208,7 @@ export class GroupService {
         });
         const update_groupbook = await this.prisma.groupBook.updateMany({
             where: { group_id: group_id },
-            data: { book_id: body.book_id }
+            data: { book_id: body.book_id, target_date: body.target_date }
         });
         return { update_group, update_groupbook }
     }
