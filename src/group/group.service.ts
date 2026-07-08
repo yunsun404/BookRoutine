@@ -181,6 +181,9 @@ export class GroupService {
         return await this.prisma.thread.findMany({
             where: {
                 group_id: group_id
+            },include:{
+                user:{select:{nickname:true}},
+                book:{select:{title:true}}
             }
         })
     }
