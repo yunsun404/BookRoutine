@@ -77,9 +77,8 @@ export class AuthService {
     async logout(refreshToken: string) {
         // 간단한 로그아웃 구현: refresh token을 저장소에서 제거
         // this.refreshTokenStore = this.refreshTokenStore.filter(rt => rt.token !== refreshToken);
-        await this.prisma.refreshToken.deleteMany({
+        return await this.prisma.refreshToken.deleteMany({
             where: { refresh_token: refreshToken }
         })
-        return { message: 'Logged out successfully' };
     }
 }

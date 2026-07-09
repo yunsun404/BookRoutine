@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
@@ -66,6 +66,9 @@ export class UserService {
     constructor(private prisma: PrismaService) { }
 
     async create(user: CreateUserInput): Promise<Omit<User, 'password'>> {
+        if (await this.prisma.user.findFirst({ where: { username: user.username } })) throw new ConflictException('이미 사용중인 아이디');
+        if (await this.prisma.user.findFirst({ where: { email: user.email } })) throw new ConflictException('이미 사용중인 이메일');
+
         const hashed = await bcrypt.hash(user.password, 10);
         const createdUser = await this.prisma.user.create({
             data: {
@@ -114,7 +117,7 @@ export class UserService {
                 age: body.age,
                 email: body.email,
                 password: hashed,
-                profile_image: body.profile_image,
+                profile_image: body.profile_image ?? undefined,
                 reading_style: body.reading_style ?? undefined,
                 reading_habit: body.reading_habit ?? undefined,
                 favorite_genre: body.favorite_genre ?? undefined,

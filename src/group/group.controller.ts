@@ -49,8 +49,8 @@ export class GroupController {
     }
 
     @Patch(':group_id/update')
-    async updateGroup(@Param('group_id') group_id: string, @Body() body: UpdateGroupDto) {
-        return await this.groupService.updateGroup(group_id, body);
+    async updateGroup(@Request() req, @Param('group_id') group_id: string, @Body() body: UpdateGroupDto) {
+        return await this.groupService.updateGroup(req.user.user_id, group_id, body);
     }
 
     @Delete(':group_id')

@@ -36,6 +36,10 @@ export class UpdateGroupDto {
     @IsString()
     @IsOptional()
     book_id?: string;
+    @Type(() => Date)
+    @IsDate()
+    @IsOptional()
+    target_date?: Date;
 }
 
 @Injectable()
@@ -121,7 +125,7 @@ export class GroupService {
         const group = await this.prisma.group.findFirst({
             where: {
                 invite_code: invite_code,
-                
+
             }
         });
         const member_count = await this.prisma.groupMember.count({
@@ -181,9 +185,9 @@ export class GroupService {
         return await this.prisma.thread.findMany({
             where: {
                 group_id: group_id
-            },include:{
-                user:{select:{nickname:true}},
-                book:{select:{title:true}}
+            }, include: {
+                user: { select: { nickname: true } },
+                book: { select: { title: true } }
             }
         })
     }
@@ -198,7 +202,14 @@ export class GroupService {
             return { is_active: false }
     }
 
-    async updateGroup(group_id: string, body: UpdateGroupDto) {
+    async updateGroup(user_id: string, group_id: string, body: UpdateGroupDto) {
+        const group = await this.prisma.group.findUnique({
+            where: {
+                group_id: group_id,
+                created_by: user_id
+            }
+        });
+        if (user_id !== group?.created_by) throw new ForbiddenException('방장이 그룹을 수정할 수 있음');
         const update_group = await this.prisma.group.update({
             where: { group_id: group_id },
             data: {
@@ -208,7 +219,7 @@ export class GroupService {
         });
         const update_groupbook = await this.prisma.groupBook.updateMany({
             where: { group_id: group_id },
-            data: { book_id: body.book_id }
+            data: { book_id: body.book_id, target_date: body.target_date }
         });
         return { update_group, update_groupbook }
     }
@@ -220,6 +231,13 @@ export class GroupService {
                 created_by: user_id
             }
         });
+        const room = await this.prisma.readingRoom.findFirst({
+            where: {
+                group_id: group_id,
+                started_by: user_id
+            },
+            select: { room_id: true }
+        })
         if (user_id !== group?.created_by) {
             throw new ForbiddenException('방장이 아니므로 방을 삭제할 수 없음');
         }
@@ -235,11 +253,30 @@ export class GroupService {
         });
         // readingroomUser도 지우고 readingroom도 지워야 함
         // thread도 지우고 하여간 엮인거 다 지워야 함 group_id는 분명 유니크니까 그걸로 찾아도 될거임
-        await this.prisma.group.delete({
+        await this.prisma.readingRoomUser.deleteMany({
+            where: {
+                room_id: room?.room_id,
+            }
+        });
+        await this.prisma.focusLog.deleteMany({
+            where: {
+                room_id: room?.room_id,
+            }
+        });
+        await this.prisma.readingRoom.deleteMany({
+            where: {
+                group_id: group_id,
+            }
+        });
+        await this.prisma.thread.deleteMany({
+            where: {
+                group_id: group_id,
+            }
+        });
+        return await this.prisma.group.delete({
             where: {
                 group_id: group_id
             }
         });
-        return { message: "deleted group successfully: ", group }
     }
 }
