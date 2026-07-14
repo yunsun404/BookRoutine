@@ -13,7 +13,8 @@ export class AuthController {
 
     @Post('register')
     async register(@Body() body: CreateUserInput) {
-        return this.userService.create(body);
+        const user = await this.userService.create(body);
+        return this.authService.login(user);
     }
 
     @Post('login')
@@ -36,8 +37,7 @@ export class AuthController {
     @UseGuards(JwtAuthGuard)
     @Delete('delete')
     async deleteAccount(@Request() req) {
-        await this.userService.delete(req.user.sub);
-        return { message: 'Account deleted successfully' };
+        return await this.userService.delete(req.user.sub);
     }
 
 }

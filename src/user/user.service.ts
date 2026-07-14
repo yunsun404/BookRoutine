@@ -65,7 +65,7 @@ export class UpdateProfileBody {
 export class UserService {
     constructor(private prisma: PrismaService) { }
 
-    async create(user: CreateUserInput): Promise<Omit<User, 'password'>> {
+    async create(user: CreateUserInput): Promise<User> {
         if (await this.prisma.user.findFirst({ where: { username: user.username } })) throw new ConflictException('이미 사용중인 아이디');
         if (await this.prisma.user.findFirst({ where: { email: user.email } })) throw new ConflictException('이미 사용중인 이메일');
 
@@ -83,8 +83,8 @@ export class UserService {
                 favorite_genre: user.favorite_genre ?? Prisma.JsonNull
             },
         });
-        const { password, ...result } = createdUser;
-        return result;
+        // const { password, ...result } = createdUser; // auth.service의 login()으로 보내서 비밀번호가 노출되지 않음
+        return createdUser;
     }
 
     async findById(user_id: string): Promise<User | null> {

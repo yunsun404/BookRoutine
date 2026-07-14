@@ -43,6 +43,7 @@ export class AuthService {
         }); // 발급된 refresh token을 RefreshToken 테이블에 저장
 
         return { // 로그인 시 access token과 refresh token을 함께 발급
+            user_id: user.user_id,
             access_token: accessToken,
             refresh_token: refreshToken
         };
