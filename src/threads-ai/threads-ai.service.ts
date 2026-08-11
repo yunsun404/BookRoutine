@@ -9,7 +9,7 @@ export class ThreadsAiService {
     // 1. 해당 book_id를 가진 모든 타래를 가져옵니다.
     const threads = await this.prisma.thread.findMany({
       where: { book_id: body.book_id },
-      orderBy: { created_at: 'asc' }, // 시간순으로 합쳐야 맥락 파악이 쉽습니다.
+      orderBy: { created_at: 'asc' },
     });
 
     if (!threads || threads.length === 0) {
@@ -32,22 +32,21 @@ export class ThreadsAiService {
 
     const data = await res.json();
 
-    // 4. 요약 결과 저장 (book_id를 식별자로 저장)
+    // 4. 요약 결과 저장
+    //    book_id는 필드로 넣지 않고, thread 관계만 연결합니다.
     const saved = await this.prisma.aiThreadSummary.create({
       data: {
-        book_id: body.book_id,
         summary: data.summary,
-        // 아래와 같이 'thread_id'를 직접 넣어주거나, 
-        // 'thread' 관계를 연결(connect)해주어야 합니다.
         thread: {
-          connect: { thread_id: threads[0].thread_id } // 가져온 타래 리스트 중 첫 번째 타래를 연결
+          connect: { thread_id: threads[0].thread_id },
         },
       },
+      include: { thread: true }, // ⭐ book_id를 꺼내오기 위한 통로
     });
 
     return {
       summary: saved.summary,
-      book_id: saved.book_id,
+      book_id: saved.thread.book_id, // 관계를 타고 넘어온 값
     };
   }
 }
