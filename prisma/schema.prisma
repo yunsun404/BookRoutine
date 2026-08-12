@@ -27,6 +27,7 @@ model User {
   bookshelf_folders       BookshelfFolder[]
   calendar_records        CalendarRecord[]
   checklists              Checklist[]
+  ebook_reading_sessions  EbookReadingSession[]
   focus_logs              FocusLog[]
   group_members           GroupMember[]
   created_groups          Group[]                 @relation("GroupCreator")
@@ -55,22 +56,25 @@ model RefreshToken {
 }
 
 model Book {
-  book_id       String        @id @default(uuid()) @db.Uuid
-  title         String
-  author        String?
-  isbn          String?
-  book_category String?
-  cover_url     String?
-  total_pages   Int?
-  book_intro    String?
-  source        String?
-  bookshelves   Bookshelf[]
-  checklists    Checklist[]
-  folder_books  FolderBook[]
-  group_books   GroupBook[]
-  reading_goals ReadingGoal[]
-  reading_rooms ReadingRoom[]
-  threads       Thread[]
+  book_id                String                @id @default(uuid()) @db.Uuid
+  title                  String
+  author                 String?
+  isbn                   String?
+  book_category          String?
+  cover_url              String?
+  total_pages            Int?
+  book_intro             String?
+  source                 String?
+  content                String?               @db.Text // 전자책 원문. 값이 있으면 "전자책"으로 취급
+  content_url            String?
+  bookshelves            Bookshelf[]
+  checklists             Checklist[]
+  ebook_reading_sessions EbookReadingSession[]
+  folder_books           FolderBook[]
+  group_books            GroupBook[]
+  reading_goals          ReadingGoal[]
+  reading_rooms          ReadingRoom[]
+  threads                Thread[]
 
   @@map("books")
 }
@@ -354,4 +358,47 @@ model Guidebook {
   user         User      @relation(fields: [user_id], references: [user_id])
 
   @@map("guidebooks")
+}
+
+model EbookReadingSession {
+  session_id          String    @id @default(uuid()) @db.Uuid
+  user_id             String    @db.Uuid
+  book_id             String    @db.Uuid
+  status              String    @default("in_progress") // in_progress | completed | abandoned
+  started_at          DateTime  @default(now())
+  ended_at            DateTime?
+  total_focused_sec   Int       @default(0)
+  total_unfocused_sec Int       @default(0)
+  interruption_count  Int       @default(0)
+  avg_focus_score     Float? // 0~100, 세션 종료 시 계산되는 캐시값
+  reward_points       Int       @default(0) // 세션 종료 시 집계된 캐시값
+  reward_exp          Int       @default(0) // 세션 종료 시 집계된 캐시값
+  golden_time_start   DateTime?
+  golden_time_end     DateTime?
+  created_at          DateTime  @default(now())
+
+  user       User            @relation(fields: [user_id], references: [user_id])
+  book       Book            @relation(fields: [book_id], references: [book_id])
+  focus_logs EbookFocusLog[]
+
+  @@map("ebook_reading_sessions")
+}
+
+// 세션별 시선추적 원시 로그 (시계열) - 프론트에서 5~10초 단위로 집계해서 보내는 버킷 하나
+model EbookFocusLog {
+  log_id        String   @id @default(uuid()) @db.Uuid
+  session_id    String   @db.Uuid
+  bucket_start  DateTime
+  bucket_end    DateTime
+  focused_ratio Float // 해당 구간 내 "집중" 판정 프레임 비율 (0~1)
+  face_detected Boolean  @default(true)
+  interruption  Boolean  @default(false) // 이탈(고개 돌림/화면 이탈 등) 발생 여부
+  avg_yaw       Float?
+  avg_pitch     Float?
+  created_at    DateTime @default(now())
+
+  session EbookReadingSession @relation(fields: [session_id], references: [session_id])
+
+  @@index([session_id, bucket_start])
+  @@map("ebook_focus_logs")
 }
