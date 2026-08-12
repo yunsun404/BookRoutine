@@ -22,6 +22,14 @@ model User {
   favorite_genre          Json?
   created_at              DateTime                @default(now())
   updated_at              DateTime                @updatedAt
+
+  // ---- 아래 5개 게이미피케이션 컬럼 신규 추가 ----
+  points                  Int                     @default(0)
+  exp                     Int                     @default(0)
+  level                   Int                     @default(1)
+  active_character_id     String?                 @db.Uuid
+  active_character        Character?              @relation(fields: [active_character_id], references: [character_id])
+
   ai_goal_recommendations AiGoalRecommendation[]
   bookshelves             Bookshelf[]
   bookshelf_folders       BookshelfFolder[]
@@ -354,4 +362,142 @@ model Guidebook {
   user         User      @relation(fields: [user_id], references: [user_id])
 
   @@map("guidebooks")
+}
+
+// ==========================================
+// [신규] 포인트 시스템 (적립/차감 원장)
+// ==========================================
+model PointLog {
+  point_log_id String   @id @default(uuid()) @db.Uuid
+  user_id      String   @db.Uuid // User 모델과 명시적 relation 없음 (스키마 충돌 방지)
+  amount       Int      // 양수 = 적립, 음수 = 차감
+  reason       String   // 'CHECKLIST_COMPLETE' | 'CHECKLIST_CANCEL' | 'CHARACTER_PURCHASE' 등
+  created_at   DateTime @default(now())
+
+  @@index([user_id])
+  @@map("point_logs")
+}
+
+// ==========================================
+// [신규] 경험치 원장 (적립 이력)
+// ==========================================
+model ExpLog {
+  exp_log_id String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid // User 모델과 명시적 relation 없음 (PointLog와 동일 패턴)
+  amount     Int
+  reason     String   // 'CHECKLIST_COMPLETE' | 'FOCUS_SESSION' | 'DAILY_QUEST' | 'WEEKLY_QUEST' 등
+  created_at DateTime @default(now())
+
+  @@index([user_id])
+  @@map("exp_logs")
+}
+
+// ==========================================
+// [신규] 레벨업 임계치 테이블 (누적 경험치 기준)
+// ==========================================
+model LevelThreshold {
+  level        Int     @id
+  required_exp Int     @unique // 이 경험치 이상이면 해당 레벨 달성
+  level_name   String? // "새싹 독서가" 같은 표시용 이름 (선택)
+
+  @@map("level_thresholds")
+}
+
+// ==========================================
+// [신규] 칭호 마스터 카탈로그 (레벨 도달 시 자동 해금)
+// ==========================================
+model Title {
+  title_id       String   @id @default(uuid()) @db.Uuid
+  name           String
+  description    String?
+  required_level Int      // 이 레벨 이상이면 획득 처리
+  image_url      String?
+  created_at     DateTime @default(now())
+
+  representative_settings UserRepresentativeTitle[]
+
+  @@map("titles")
+}
+
+// ==========================================
+// [신규] 유저별 대표 칭호 (진짜 1:1 — PK가 user_id 자체)
+// ==========================================
+model UserRepresentativeTitle {
+  user_id    String   @id @db.Uuid // PK = user_id → 유저당 정확히 1행만 존재 강제
+  title_id   String   @db.Uuid
+  updated_at DateTime @updatedAt
+
+  title Title @relation(fields: [title_id], references: [title_id])
+
+  @@map("user_representative_titles")
+}
+
+// ==========================================
+// [신규] 캐릭터 카탈로그 (포인트로만 구매)
+// ==========================================
+model Character {
+  character_id String          @id @default(uuid()) @db.Uuid
+  name         String
+  description  String?
+  price        Int             // 포인트 가격
+  image_url    String?
+  created_at   DateTime        @default(now())
+
+  owners       UserCharacter[]
+  active_users User[]          // active_character_id로 이 캐릭터를 장착 중인 유저들
+
+  @@map("characters")
+}
+
+// ==========================================
+// [신규] 유저-캐릭터 소유 관계 (구매 이력, 복합 PK)
+// ==========================================
+model UserCharacter {
+  user_id      String    @db.Uuid // User 모델과 명시적 relation 없음 (PointLog와 동일 패턴)
+  character_id String    @db.Uuid
+  purchased_at DateTime  @default(now())
+
+  character    Character @relation(fields: [character_id], references: [character_id])
+
+  @@id([user_id, character_id]) // 복합 PK → 같은 캐릭터 중복 구매를 DB가 원천 차단
+  @@index([user_id])
+  @@map("user_characters")
+}
+
+// ==========================================
+// [신규] 퀘스트 마스터 (일일 / 주간)
+// ==========================================
+model Quest {
+  quest_id       String      @id @default(uuid()) @db.Uuid
+  title          String
+  description    String?
+  quest_type     String      // 'DAILY' | 'WEEKLY'
+  condition_type String      // 'READING_ROOM_JOIN' | 'CHECKLIST_COMPLETE' 등
+  goal_count     Int
+  reward_exp     Int         @default(0)
+  reward_points  Int         @default(0)
+  created_at     DateTime    @default(now())
+
+  user_quests    UserQuest[]
+
+  @@map("quests")
+}
+
+// ==========================================
+// [신규] 유저별 퀘스트 진행 상황
+// ==========================================
+model UserQuest {
+  user_quest_id String    @id @default(uuid()) @db.Uuid
+  user_id       String    @db.Uuid // User 모델과 명시적 relation 없음 (PointLog와 동일 패턴)
+  quest_id      String    @db.Uuid
+  current_count Int       @default(0)
+  is_completed  Boolean   @default(false)
+  reset_date    DateTime  @db.Date // 일일/주간 리셋 기준 날짜
+  completed_at  DateTime?
+  created_at    DateTime  @default(now())
+
+  quest         Quest     @relation(fields: [quest_id], references: [quest_id])
+
+  @@index([user_id])
+  @@map("user_quests")
 }
