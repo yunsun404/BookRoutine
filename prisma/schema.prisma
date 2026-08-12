@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
 }
 
 datasource db {
@@ -21,6 +22,10 @@ model User {
   favorite_genre          Json?
   created_at              DateTime               @default(now())
   updated_at              DateTime               @updatedAt
+  active_character_id     String?                @db.Uuid
+  exp                     Int                    @default(0)
+  level                   Int                    @default(1)
+  points                  Int                    @default(0)
   ai_goal_recommendations AiGoalRecommendation[]
   bookshelves             Bookshelf[]
   bookshelf_folders       BookshelfFolder[]
@@ -38,6 +43,7 @@ model User {
   refresh_tokens          RefreshToken[]
   thread_replies          ThreadReply[]
   threads                 Thread[]
+  characters              characters?            @relation(fields: [active_character_id], references: [character_id])
 
   @@map("users")
 }
@@ -150,36 +156,36 @@ model GroupBook {
   @@map("group_books")
 }
 
-model ReadingRoom {
-  room_id            String            @id @default(uuid()) @db.Uuid
-  group_id           String?           @db.Uuid
-  book_id            String?           @db.Uuid
-  started_by         String            @db.Uuid
-  is_active          Boolean           @default(true)
-  started_at         DateTime?
-  ended_at           DateTime?
-  max_users          Int               @default(6)
-  room_name          String
-  focus_logs         FocusLog[]
-  reading_room_users ReadingRoomUser[]
-  book               Book?             @relation(fields: [book_id], references: [book_id])
-  group              Group?            @relation(fields: [group_id], references: [group_id])
-  starter            User              @relation("RoomStarter", fields: [started_by], references: [user_id])
-
-  @@map("reading_rooms")
-}
-
 model ReadingRoomUser {
-  room_user_id String      @id @default(uuid())
-  room_id      String      @db.Uuid
-  user_id      String      @db.Uuid
-  entered_at   DateTime?
-  exited_at    DateTime?
-  status       String      @default("reading")
-  room         ReadingRoom @relation(fields: [room_id], references: [room_id])
-  user         User        @relation(fields: [user_id], references: [user_id])
+  room_user_id  String      @id @default(uuid())
+  room_id       String      @db.Uuid
+  user_id       String      @db.Uuid
+  entered_at    DateTime?
+  exited_at     DateTime?
+  status        String      @default("reading")
+  reading_rooms ReadingRoom @relation(fields: [room_id], references: [room_id])
+  users         User        @relation(fields: [user_id], references: [user_id])
 
   @@map("reading_room_users")
+}
+
+model ReadingRoom {
+  room_id         String            @id @default(uuid()) @db.Uuid
+  group_id        String?           @db.Uuid
+  book_id         String?           @db.Uuid
+  started_by      String            @db.Uuid
+  is_active       Boolean           @default(true)
+  started_at      DateTime?
+  ended_at        DateTime?
+  max_users       Int               @default(6)
+  room_name       String
+  focus_logs      FocusLog[]
+  ReadingRoomUser ReadingRoomUser[]
+  books           Book?             @relation(fields: [book_id], references: [book_id])
+  groups          Group?            @relation(fields: [group_id], references: [group_id])
+  users           User              @relation("RoomStarter", fields: [started_by], references: [user_id])
+
+  @@map("reading_rooms")
 }
 
 model FocusLog {
@@ -344,4 +350,95 @@ model Guidebook {
   user         User      @relation(fields: [user_id], references: [user_id])
 
   @@map("guidebooks")
+}
+
+model characters {
+  character_id    String            @id @db.Uuid
+  name            String
+  description     String?
+  price           Int
+  image_url       String?
+  created_at      DateTime          @default(now())
+  user_characters user_characters[]
+  users           User[]
+}
+
+model exp_logs {
+  exp_log_id String   @id @db.Uuid
+  user_id    String   @db.Uuid
+  amount     Int
+  reason     String
+  created_at DateTime @default(now())
+
+  @@index([user_id])
+}
+
+model level_thresholds {
+  level        Int     @id
+  required_exp Int     @unique
+  level_name   String?
+}
+
+model point_logs {
+  point_log_id String   @id @db.Uuid
+  user_id      String   @db.Uuid
+  amount       Int
+  reason       String
+  created_at   DateTime @default(now())
+
+  @@index([user_id])
+}
+
+model quests {
+  quest_id       String        @id @db.Uuid
+  title          String
+  description    String?
+  quest_type     String
+  condition_type String
+  goal_count     Int
+  reward_exp     Int           @default(0)
+  reward_points  Int           @default(0)
+  created_at     DateTime      @default(now())
+  user_quests    user_quests[]
+}
+
+model titles {
+  title_id                   String                       @id @db.Uuid
+  name                       String
+  description                String?
+  required_level             Int
+  image_url                  String?
+  created_at                 DateTime                     @default(now())
+  user_representative_titles user_representative_titles[]
+}
+
+model user_characters {
+  user_id      String     @db.Uuid
+  character_id String     @db.Uuid
+  purchased_at DateTime   @default(now())
+  characters   characters @relation(fields: [character_id], references: [character_id])
+
+  @@id([user_id, character_id])
+  @@index([user_id])
+}
+
+model user_quests {
+  user_quest_id String    @id @db.Uuid
+  user_id       String    @db.Uuid
+  quest_id      String    @db.Uuid
+  current_count Int       @default(0)
+  is_completed  Boolean   @default(false)
+  reset_date    DateTime  @db.Date
+  completed_at  DateTime?
+  created_at    DateTime  @default(now())
+  quests        quests    @relation(fields: [quest_id], references: [quest_id])
+
+  @@index([user_id])
+}
+
+model user_representative_titles {
+  user_id    String   @id @db.Uuid
+  title_id   String   @db.Uuid
+  updated_at DateTime
+  titles     titles   @relation(fields: [title_id], references: [title_id])
 }

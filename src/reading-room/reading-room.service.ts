@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 // 방 만들기
 export interface CreateRoom {
     room_id: string;
+    group_name: string;
     group_id: string;
     book_id: string;
     started_by: string;
@@ -19,6 +20,7 @@ export class ReadingRoomService {
     createRoom(user_id: string, createRoom: CreateRoom) {
         return this.prisma.readingRoom.create({
             data: {
+                room_name: createRoom.group_name,
                 group_id: createRoom.group_id,
                 book_id: createRoom.book_id,
                 started_by: user_id,
