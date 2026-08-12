@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
-import { UpdateProfileBody } from './user.controller';
+import { IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
 import { JsonValue } from '@prisma/client/runtime/library';
 import { Prisma } from '@prisma/client';
 
@@ -33,11 +33,42 @@ export interface CreateUserInput {
     favorite_genre?: JsonValue;
 }
 
+// 프로필 수정 인터페이스->클래스
+export class UpdateProfileBody {
+    @IsString()
+    @IsOptional()
+    nickname?: string;
+    @IsNumber()
+    @IsOptional()
+    age?: number;
+    @IsString()
+    @IsOptional()
+    email?: string;
+    @IsString()
+    @IsOptional()
+    password?: string;
+    @IsString()
+    @IsOptional()
+    profile_image?: string;
+    @IsObject()
+    @IsOptional()
+    reading_style?: object;
+    @IsObject()
+    @IsOptional()
+    reading_habit?: object;
+    @IsObject()
+    @IsOptional()
+    favorite_genre?: object;
+}
+
 @Injectable()
 export class UserService {
     constructor(private prisma: PrismaService) { }
 
-    async create(user: CreateUserInput): Promise<Omit<User, 'password'>> {
+    async create(user: CreateUserInput): Promise<User> {
+        if (await this.prisma.user.findFirst({ where: { username: user.username } })) throw new ConflictException('이미 사용중인 아이디');
+        if (await this.prisma.user.findFirst({ where: { email: user.email } })) throw new ConflictException('이미 사용중인 이메일');
+
         const hashed = await bcrypt.hash(user.password, 10);
         const createdUser = await this.prisma.user.create({
             data: {
@@ -52,8 +83,8 @@ export class UserService {
                 favorite_genre: user.favorite_genre ?? Prisma.JsonNull
             },
         });
-        const { password, ...result } = createdUser;
-        return result;
+        // const { password, ...result } = createdUser; // auth.service의 login()으로 보내서 비밀번호가 노출되지 않음
+        return createdUser;
     }
 
     async findById(user_id: string): Promise<User | null> {
@@ -78,15 +109,17 @@ export class UserService {
     }
 
     async update(user_id: string, body: UpdateProfileBody) {
+        const hashed = body.password ? await bcrypt.hash(body.password, 10) : undefined;
         return this.prisma.user.update({
             where: { user_id: user_id },
             data: {
                 nickname: body.nickname,
                 age: body.age,
                 email: body.email,
-                password: body.password,
-                profile_image: body.profile_image,
+                password: hashed,
+                profile_image: body.profile_image ?? undefined,
                 reading_style: body.reading_style ?? undefined,
+                reading_habit: body.reading_habit ?? undefined,
                 favorite_genre: body.favorite_genre ?? undefined,
             }
         });

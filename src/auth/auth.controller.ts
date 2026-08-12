@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Patch, Post, Request, UseGuards } from '
 import { UserService } from '../user/user.service.js';
 import type { CreateUserInput } from '../user/user.service.js';
 import { AuthService } from './auth.service.js';
-import { JwtAuthGuard } from '../jwtAuth.guard.js';
+import { JwtAuthGuard } from './jwt-auth.guard.js';
 
 @Controller('auth')
 export class AuthController {
@@ -13,7 +13,8 @@ export class AuthController {
 
     @Post('register')
     async register(@Body() body: CreateUserInput) {
-        return this.userService.create(body);
+        const user = await this.userService.create(body);
+        return this.authService.login(user);
     }
 
     @Post('login')
@@ -29,15 +30,14 @@ export class AuthController {
 
     @UseGuards(JwtAuthGuard)
     @Post('logout')
-    logout(@Body() body: { refreshToken: string }) {
+    async logout(@Body() body: { refreshToken: string }) {
         return this.authService.logout(body.refreshToken);
     }
 
     @UseGuards(JwtAuthGuard)
     @Delete('delete')
     async deleteAccount(@Request() req) {
-        await this.userService.delete(req.user.user_id);
-        return { message: 'Account deleted successfully' };
+        return await this.userService.delete(req.user.sub);
     }
 
 }

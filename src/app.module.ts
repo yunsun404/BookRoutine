@@ -6,15 +6,20 @@ import { FirebaseService } from './firebase/firebase.service';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { ReadingRoomModule } from './reading-room/reading-room.module';
+import { GroupController } from './group/group.controller';
+import { GroupModule } from './group/group.module';
+import { PrismaService } from './prisma/prisma.service';
+import { GroupService } from './group/group.service';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),  // ← added
     AuthModule,
     UserModule,
-    ReadingRoomModule
+    ReadingRoomModule,
+    GroupModule
   ],
-  controllers: [AppController],
-  providers: [AppService, FirebaseService],
+  controllers: [AppController, GroupController],
+  providers: [PrismaService, AppService, FirebaseService, GroupService],
 })
 export class AppModule { }
