@@ -43,7 +43,7 @@ model User {
   refresh_tokens          RefreshToken[]
   thread_replies          ThreadReply[]
   threads                 Thread[]
-  characters              characters?            @relation(fields: [active_character_id], references: [character_id])
+  active_character        Character?             @relation(fields: [active_character_id], references: [character_id])
 
   @@map("users")
 }
@@ -352,78 +352,98 @@ model Guidebook {
   @@map("guidebooks")
 }
 
-model characters {
-  character_id    String            @id @db.Uuid
-  name            String
-  description     String?
-  price           Int
-  image_url       String?
-  created_at      DateTime          @default(now())
-  user_characters user_characters[]
-  users           User[]
-}
-
-model exp_logs {
-  exp_log_id String   @id @db.Uuid
-  user_id    String   @db.Uuid
-  amount     Int
-  reason     String
-  created_at DateTime @default(now())
-
-  @@index([user_id])
-}
-
-model level_thresholds {
-  level        Int     @id
-  required_exp Int     @unique
-  level_name   String?
-}
-
-model point_logs {
-  point_log_id String   @id @db.Uuid
+model PointLog {
+  point_log_id String   @id @default(uuid()) @db.Uuid
   user_id      String   @db.Uuid
   amount       Int
   reason       String
   created_at   DateTime @default(now())
 
   @@index([user_id])
+  @@map("point_logs")
 }
 
-model quests {
-  quest_id       String        @id @db.Uuid
+model ExpLog {
+  exp_log_id String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  amount     Int
+  reason     String
+  created_at DateTime @default(now())
+
+  @@index([user_id])
+  @@map("exp_logs")
+}
+
+model LevelThreshold {
+  level        Int     @id
+  required_exp Int     @unique
+  level_name   String?
+
+  @@map("level_thresholds")
+}
+
+model Title {
+  title_id                String                    @id @default(uuid()) @db.Uuid
+  name                    String
+  description             String?
+  required_level          Int
+  image_url               String?
+  created_at              DateTime                  @default(now())
+  representative_settings UserRepresentativeTitle[]
+
+  @@map("titles")
+}
+
+model UserRepresentativeTitle {
+  user_id    String   @id @db.Uuid
+  title_id   String   @db.Uuid
+  updated_at DateTime @updatedAt
+  title      Title    @relation(fields: [title_id], references: [title_id])
+
+  @@map("user_representative_titles")
+}
+
+model Character {
+  character_id String          @id @default(uuid()) @db.Uuid
+  name         String
+  description  String?
+  price        Int
+  image_url    String?
+  created_at   DateTime        @default(now())
+  owners       UserCharacter[]
+  active_users User[]
+
+  @@map("characters")
+}
+
+model UserCharacter {
+  user_id      String    @db.Uuid
+  character_id String    @db.Uuid
+  purchased_at DateTime  @default(now())
+  character    Character @relation(fields: [character_id], references: [character_id])
+
+  @@id([user_id, character_id])
+  @@index([user_id])
+  @@map("user_characters")
+}
+
+model Quest {
+  quest_id       String      @id @default(uuid()) @db.Uuid
   title          String
   description    String?
   quest_type     String
   condition_type String
   goal_count     Int
-  reward_exp     Int           @default(0)
-  reward_points  Int           @default(0)
-  created_at     DateTime      @default(now())
-  user_quests    user_quests[]
+  reward_exp     Int         @default(0)
+  reward_points  Int         @default(0)
+  created_at     DateTime    @default(now())
+  user_quests    UserQuest[]
+
+  @@map("quests")
 }
 
-model titles {
-  title_id                   String                       @id @db.Uuid
-  name                       String
-  description                String?
-  required_level             Int
-  image_url                  String?
-  created_at                 DateTime                     @default(now())
-  user_representative_titles user_representative_titles[]
-}
-
-model user_characters {
-  user_id      String     @db.Uuid
-  character_id String     @db.Uuid
-  purchased_at DateTime   @default(now())
-  characters   characters @relation(fields: [character_id], references: [character_id])
-
-  @@id([user_id, character_id])
-  @@index([user_id])
-}
-
-model user_quests {
-  user_quest_id String    @id @db.Uuid
+model UserQuest {
+  user_quest_id String    @id @default(uuid()) @db.Uuid
   user_id       String    @db.Uuid
   quest_id      String    @db.Uuid
   current_count Int       @default(0)
@@ -431,14 +451,8 @@ model user_quests {
   reset_date    DateTime  @db.Date
   completed_at  DateTime?
   created_at    DateTime  @default(now())
-  quests        quests    @relation(fields: [quest_id], references: [quest_id])
+  quest         Quest     @relation(fields: [quest_id], references: [quest_id])
 
   @@index([user_id])
-}
-
-model user_representative_titles {
-  user_id    String   @id @db.Uuid
-  title_id   String   @db.Uuid
-  updated_at DateTime
-  titles     titles   @relation(fields: [title_id], references: [title_id])
+  @@map("user_quests")
 }

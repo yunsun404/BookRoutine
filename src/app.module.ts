@@ -10,6 +10,7 @@ import { GroupController } from './group/group.controller';
 import { GroupModule } from './group/group.module';
 import { PrismaService } from './prisma/prisma.service';
 import { GroupService } from './group/group.service';
+import { QuestModule } from './quest/quest.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { GroupService } from './group/group.service';
     AuthModule,
     UserModule,
     ReadingRoomModule,
-    GroupModule
+    GroupModule,
+    QuestModule
   ],
   controllers: [AppController, GroupController],
   providers: [PrismaService, AppService, FirebaseService, GroupService],
