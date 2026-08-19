@@ -33,20 +33,19 @@ export class ThreadsAiService {
     const data = await res.json();
 
     // 4. 요약 결과 저장
-    //    book_id는 필드로 넣지 않고, thread 관계만 연결합니다.
     const saved = await this.prisma.aiThreadSummary.create({
       data: {
         summary: data.summary,
+        book_id: body.book_id, // ⭐ 데이터베이스 스키마에 필수인 book_id 추가
         thread: {
           connect: { thread_id: threads[0].thread_id },
         },
       },
-      include: { thread: true }, // ⭐ book_id를 꺼내오기 위한 통로
     });
 
     return {
       summary: saved.summary,
-      book_id: saved.thread.book_id, // 관계를 타고 넘어온 값
+      book_id: saved.book_id,
     };
   }
 }
