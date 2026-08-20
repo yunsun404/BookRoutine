@@ -11,10 +11,15 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UserService } from './user.service';
 import { UpdateProfileBody } from './user.service';
+import { TitlesService } from '../titles/titles.service';
+import { SetRepresentativeTitleDto } from '../titles/dto/set-representatice-title.dto';
 
 @Controller('users')
 export class UserController {
-  constructor(private userService: UserService) {}
+  constructor(
+    private userService: UserService,
+    private titlesService: TitlesService, // 추가
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
@@ -33,6 +38,14 @@ export class UserController {
     const { password, ...result } = updatedUser;
     return { message: 'Profile updated successfully', user: result };
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/titles')
+  async setRepresentativeTitle(@Request() req, @Body() body: SetRepresentativeTitleDto) {
+    const result = await this.titlesService.setRepresentativeTitle(req.user.sub, body.title_id);
+    return { message: '대표 칭호가 설정되었습니다.', result };
+  }
+
 
   @UseGuards(JwtAuthGuard)
   @Get(':user_id')
