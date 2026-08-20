@@ -1,9 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PointsService, POINT_REASON } from '../points/points.service';
+import { ExpService, EXP_REASON } from '../exp/exp.service';
 
 @Injectable()
 export class ChecklistsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pointsService: PointsService, // 추가
+    private readonly expService: ExpService,       // 추가
+  ) {}
 
   async findByDate(userId: string, date: string) {
     const start = new Date(`${date}T00:00:00.000Z`);
@@ -114,7 +120,31 @@ export class ChecklistsService {
       }
     }
 
-    return updated; // ✅ 추가
+    // ---- 포인트/경험치 지급 ----
+    // checklist.user_id를 그대로 씀
+    // 방금 조회한 checklist 레코드에서 꺼내 쓰면 됨 (별도 인자 추가 불필요)
+    if (nowChecked) {
+      await this.pointsService.addPoint(
+        checklist.user_id,
+        10,
+        POINT_REASON.CHECKLIST_COMPLETE,
+      );
+      await this.expService.addExp(
+        checklist.user_id,
+        2,
+        EXP_REASON.CHECKLIST_COMPLETE,
+      );
+    } else {
+      // 체크 해제 = 지급했던 걸 그대로 회수 (무한 채굴 방지)
+      await this.pointsService.addPoint(
+        checklist.user_id,
+        -10,
+        POINT_REASON.CHECKLIST_CANCEL,
+      );
+      // 경험치는 원래 설계상 절대 깎이지 않는 값이라(레벨이 떨어지면 안 되므로) 회수하지 않음
+    }
+
+    return updated;
   }
 
   async findMonthly(userId: string, year: number, month: number) {
