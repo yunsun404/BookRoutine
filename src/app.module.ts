@@ -30,6 +30,7 @@ import { StatsModule } from './stats/stats.module'; // 새로 만든 stats 모�
     ChecklistsModule,
     CalendarRecordsModule,
     GroupModule,
+    ThreadsAiModule,
   ],
   controllers: [AppController],
   providers: [AppService, FirebaseService],

@@ -1,19 +1,20 @@
-import { BadGatewayException, Injectable } from '@nestjs/common';
+import { NotFoundException, BadGatewayException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ThreadsAiService {
   constructor(private readonly prisma: PrismaService) { }
 
-  async summary(body: { book_id: string }) {
-    // 1. 해당 book_id를 가진 모든 타래를 가져옵니다.
+  async summary(body: { thread_id?: string; book_id: string }) {
+    // 1. 해당 book_id를 가진 모든 타래를 시간순으로 가져옵니다.
     const threads = await this.prisma.thread.findMany({
       where: { book_id: body.book_id },
       orderBy: { created_at: 'asc' },
     });
 
+    // ⭐ 타래가 없을 경우 404 Not Found 에러 반환
     if (!threads || threads.length === 0) {
-      throw new BadGatewayException('해당 책에 등록된 타래가 없어 요약할 수 없습니다.');
+      throw new NotFoundException('해당 책에 등록된 타래가 없어 요약할 수 없습니다.');
     }
 
     // 2. 모든 타래의 content를 하나로 합칩니다.
@@ -36,7 +37,7 @@ export class ThreadsAiService {
     const saved = await this.prisma.aiThreadSummary.create({
       data: {
         summary: data.summary,
-        book_id: body.book_id, // ⭐ 데이터베이스 스키마에 필수인 book_id 추가
+        book_id: body.book_id,
         thread: {
           connect: { thread_id: threads[0].thread_id },
         },
